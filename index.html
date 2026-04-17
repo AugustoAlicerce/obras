@@ -111,7 +111,7 @@ table td{padding:10px;border-bottom:1px solid #f0f0f0}
     <div class="card">
       <div class="card-title">Perfil longitudinal da obra</div>
       <div class="legend" id="legend-container"></div>
-      <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:end"> <div class="form-field" style="min-width:100px"><label>Estaca de</label><input type="number" id="g-ini" min="0" step="1" value="0"></div> <div class="form-field" style="min-width:100px"><label>Estaca até</label><input type="number" id="g-fim" min="0" step="1" value="50"></div> <button class="secondary" id="g-prev">◀ Anterior</button> <button class="secondary" id="g-next">Próximo ▶</button> <span style="font-size:12px;color:#666" id="g-info"></span> </div> <div class="chart-wrap"><svg id="svg-grid" style="width:100%;height:auto;display:block"></svg></div>
+      <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:end"> <div class="form-field" style="min-width:100px"><label>Estaca de</label><input type="number" id="g-ini" min="0" step="1" value="0"></div> <div class="form-field" style="min-width:100px"><label>Estaca até</label><input type="number" id="g-fim" min="0" step="1" value="50"></div> <button class="secondary" id="g-prev">◀ Anterior</button> <button class="secondary" id="g-next">Próximo ▶</button> <button class="secondary" id="g-all">Ver tudo</button> <span style="font-size:12px;color:#666" id="g-info"></span> </div> <div class="chart-wrap"><svg id="svg-grid" style="width:100%;height:auto;display:block"></svg></div>
     </div>
   </div>
 
@@ -370,14 +370,16 @@ function renderGrafico(){
   var svg=document.getElementById('svg-grid');
   if(!APP.obraAtual){svg.innerHTML='';return}
   var servicos=getServicosObra();
-  var eIni=parseInt(document.getElementById('g-ini').value)||0;
-  var eFim=parseInt(document.getElementById('g-fim').value)||50;
-  if(eFim<eIni)eFim=eIni+50;
-  var tE=eFim;
   var estInicioObra=APP.obraAtual.EstacaInicial||0;
   var estFimObra=APP.obraAtual.EstacaFinal||0;
+  var gIni=document.getElementById('g-ini');
+  var gFim=document.getElementById('g-fim');
+  var eIni=parseInt(gIni.value);
+  var eFim=parseInt(gFim.value);
+  if(isNaN(eIni)||isNaN(eFim)||eIni===estInicioObra&&eFim===estFimObra){eIni=estInicioObra;eFim=estFimObra}
+  if(eFim<eIni)eFim=eIni;
   if(eFim>estFimObra)eFim=estFimObra;
-  document.getElementById('g-info').textContent='Mostrando estacas '+eIni+' a '+eFim+' de '+estFimObra;
+  document.getElementById('g-info').textContent='Estacas '+eIni+' a '+eFim+' (total: '+estFimObra+')';
   var ns='http://www.w3.org/2000/svg';
 
   // serviços de cima (tudo exceto terra) — ordem invertida
