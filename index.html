@@ -520,6 +520,7 @@ function bindEvents(){
   document.getElementById('obra-sel').onchange=function(ev){var id=parseInt(ev.target.value);APP.obraAtual=APP.obras.find(function(o){return o.Id===id});carregarDadosObra().then(function(){verificarPermissaoUI()})};
   document.getElementById('btn-reload').onclick=function(){carregarDadosObra().then(function(){popularSelects();verificarPermissaoUI()})};
   document.getElementById('g-ini').onchange=renderGrafico; document.getElementById('g-fim').onchange=renderGrafico; document.getElementById('g-prev').onclick=function(){var ini=parseInt(document.getElementById('g-ini').value)||0;var fim=parseInt(document.getElementById('g-fim').value)||50;var range=fim-ini;ini=Math.max(APP.obraAtual.EstacaInicial||0,ini-range);fim=ini+range;document.getElementById('g-ini').value=ini;document.getElementById('g-fim').value=fim;renderGrafico()}; document.getElementById('g-next').onclick=function(){var ini=parseInt(document.getElementById('g-ini').value)||0;var fim=parseInt(document.getElementById('g-fim').value)||50;var range=fim-ini;ini=ini+range;fim=ini+range;if(fim>(APP.obraAtual.EstacaFinal||0))fim=APP.obraAtual.EstacaFinal||0;if(ini>fim)ini=Math.max(0,fim-range);document.getElementById('g-ini').value=ini;document.getElementById('g-fim').value=fim;renderGrafico()};
+  document.getElementById('g-all').onclick=function(){document.getElementById('g-ini').value=APP.obraAtual.EstacaInicial||0;document.getElementById('g-fim').value=APP.obraAtual.EstacaFinal||0;renderGrafico()};
   document.getElementById('btn-debug').onclick=function(){debugVisible=!debugVisible;if(!debugVisible)document.getElementById('debug-area').innerHTML='';else renderDebug()};
   document.getElementById('r-est').oninput=atualizarInfoRegistro; document.getElementById('r-est-fim').oninput=atualizarInfoRegistro;
   document.getElementById('r-serv').onchange=atualizarInfoRegistro;
@@ -535,7 +536,7 @@ function bindEvents(){
     try{
       await DataAPI.atualizarObra(APP.obraAtual.Id,{Servicos:selecionados.join(';')});
       APP.obraAtual.Servicos=selecionados.join(';');
-      document.getElementById('g-ini').value=APP.obraAtual.EstacaInicial||0;document.getElementById('g-fim').value=Math.min((APP.obraAtual.EstacaInicial||0)+50,(APP.obraAtual.EstacaFinal||0));
+      popularSelects();renderStats();renderLegend();renderGrafico();
       document.getElementById('serv-msg').innerHTML='<div class="alert alert-ok">✓ Serviços atualizados: '+selecionados.map(function(s){return NOMES[s]}).join(', ')+'.</div>';
     }catch(e){document.getElementById('serv-msg').innerHTML='<div class="alert alert-err">Erro: '+e.message+'</div>'}
     finally{btn.disabled=false;btn.textContent='Salvar serviços da obra'}
@@ -629,7 +630,12 @@ async function carregarDadosObra(){
   var results=await Promise.all([DataAPI.listarProjeto(APP.obraAtual.Id),DataAPI.listarExecucao(APP.obraAtual.Id)]);
   APP.projeto=results[0];APP.execucao=results[1];
   dbg('Projeto: '+APP.projeto.length+' registros. Execução: '+APP.execucao.length+' registros.','ok');
-  document.getElementById('g-ini').value=APP.obraAtual.EstacaInicial||0;document.getElementById('g-fim').value=Math.min((APP.obraAtual.EstacaInicial||0)+50,(APP.obraAtual.EstacaFinal||0));
+  document.getElementById('g-ini').value=APP.obraAtual.EstacaInicial||0;
+  document.getElementById('g-fim').value=APP.obraAtual.EstacaFinal||0;
+  popularSelects();
+  renderStats();
+  renderLegend();
+  renderGrafico();
   if(document.getElementById('tab-historico').style.display!=='none')renderHistorico();
   if(document.getElementById('tab-projeto').style.display!=='none'){renderProjeto();renderServicosObra()}
   atualizarInfoRegistro();
