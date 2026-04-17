@@ -438,9 +438,17 @@ function renderHistorico(){
   if(fF)l=l.filter(function(x){return(x.DataExecucao||'').substring(0,10)<=fF});
   l.sort(function(a,b){return(b.DataExecucao||'').localeCompare(a.DataExecucao||'')});
   if(l.length===0){d.innerHTML='<div style="color:#999;padding:20px;text-align:center">Nenhum registro.</div>';return}
-  var h='<div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Estaca</th><th>Serviço</th><th>Camadas</th><th>Responsável</th><th>Obs</th></tr></thead><tbody>';
-  l.forEach(function(r){var dt=(r.DataExecucao||'').substring(0,10).split('-').reverse().join('/');h+='<tr><td>'+dt+'</td><td>'+r.Estaca+'</td><td><span class="badge badge-'+r.Servico+'">'+(NOMES[r.Servico]||r.Servico)+'</span></td><td>'+(r.NumCamadasExecutadas||1)+'</td><td>'+(r.Responsavel||'-')+'</td><td>'+(r.Observacao||'-')+'</td></tr>'});
+  var h='<div style="overflow-x:auto"><table><thead><tr><th>Data</th><th>Estaca</th><th>Serviço</th><th>Camadas</th><th>Responsável</th><th>Obs</th><th></th></tr></thead><tbody>';
+  l.forEach(function(r){var dt=(r.DataExecucao||'').substring(0,10).split('-').reverse().join('/');h+='<tr><td>'+dt+'</td><td>'+r.Estaca+'</td><td><span class="badge badge-'+r.Servico+'">'+(NOMES[r.Servico]||r.Servico)+'</span></td><td>'+(r.NumCamadasExecutadas||1)+'</td><td>'+(r.Responsavel||'-')+'</td><td>'+(r.Observacao||'-')+'</td><td><button class="secondary" style="color:#a8071a;font-size:11px;padding:4px 8px" onclick="excluirExecucao('+r.Id+')">Excluir</button></td></tr>'});
   h+='</tbody></table></div>';d.innerHTML=h;
+}
+async function excluirExecucao(itemId){
+  if(!confirm('Tem certeza que deseja excluir este registro?'))return;
+  try{
+    await SP.deletarItem(LISTA_EXECUCAO,itemId);
+    await carregarDadosObra();
+    renderHistorico();
+  }catch(e){alert('Erro ao excluir: '+e.message)}
 }
 
 function renderProjeto(){
@@ -508,6 +516,7 @@ function renderServicosObra(){
 function bindEvents(){
   document.querySelectorAll('.tab-btn').forEach(function(b){b.onclick=function(){document.querySelectorAll('.tab-btn').forEach(function(x){x.classList.remove('active')});b.classList.add('active');['dashboard','registrar','historico','projeto'].forEach(function(t){document.getElementById('tab-'+t).style.display=t===b.dataset.tab?'block':'none'});if(b.dataset.tab==='historico')renderHistorico();if(b.dataset.tab==='projeto'){renderProjeto();renderServicosObra()}if(b.dataset.tab==='registrar'){popularSelects();verificarPermissaoUI()}}});
   document.getElementById('obra-sel').onchange=function(ev){var id=parseInt(ev.target.value);APP.obraAtual=APP.obras.find(function(o){return o.Id===id});carregarDadosObra().then(function(){verificarPermissaoUI()})};
+  document.getElementById('btn-reload').onclick=function(){carregarDadosObra().then(function(){popularSelects();verificarPermissaoUI()})};
   document.getElementById('g-ini').onchange=renderGrafico; document.getElementById('g-fim').onchange=renderGrafico; document.getElementById('g-prev').onclick=function(){var ini=parseInt(document.getElementById('g-ini').value)||0;var fim=parseInt(document.getElementById('g-fim').value)||50;var range=fim-ini;ini=Math.max(APP.obraAtual.EstacaInicial||0,ini-range);fim=ini+range;document.getElementById('g-ini').value=ini;document.getElementById('g-fim').value=fim;renderGrafico()}; document.getElementById('g-next').onclick=function(){var ini=parseInt(document.getElementById('g-ini').value)||0;var fim=parseInt(document.getElementById('g-fim').value)||50;var range=fim-ini;ini=ini+range;fim=ini+range;if(fim>(APP.obraAtual.EstacaFinal||0))fim=APP.obraAtual.EstacaFinal||0;if(ini>fim)ini=Math.max(0,fim-range);document.getElementById('g-ini').value=ini;document.getElementById('g-fim').value=fim;renderGrafico()};
   document.getElementById('btn-debug').onclick=function(){debugVisible=!debugVisible;if(!debugVisible)document.getElementById('debug-area').innerHTML='';else renderDebug()};
   document.getElementById('r-est').oninput=atualizarInfoRegistro; document.getElementById('r-est-fim').oninput=atualizarInfoRegistro;
