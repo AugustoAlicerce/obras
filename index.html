@@ -179,7 +179,7 @@ table td{padding:10px;border-bottom:1px solid #f0f0f0}
 </div>
 
 <!-- MSAL.js v2 (Microsoft Authentication Library) -->
-<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.0/lib/msal-browser.min.js"></script>
+<script src="https://unpkg.com/@azure/msal-browser@2.38.0/lib/msal-browser.min.js"></script>
 
 <script>
 /* =================================================================
@@ -209,7 +209,7 @@ var msalConfig = {
   cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
 };
 
-var msalApp = new msal.PublicClientApplication(msalConfig);
+var msalApp = null;
 var currentAccount = null;
 var accessToken = null;
 
@@ -524,7 +524,7 @@ async function iniciarApp() {
    ================================================================= */
 async function boot() {
   try {
-    // MSAL v3 requer initialize(), v2 não tem esse método
+    msalApp = new msal.PublicClientApplication(msalConfig);
     if (typeof msalApp.initialize === 'function') {
       await msalApp.initialize();
     }
