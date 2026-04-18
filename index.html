@@ -431,77 +431,100 @@ function renderGrafico(){
   var ultimaExec='';if(APP.execucao.length>0){var datas=APP.execucao.map(function(e){return(e.DataExecucao||'').substring(0,10)}).sort();ultimaExec=datas[datas.length-1].split('-').reverse().join('/')}
   document.getElementById('g-ultima-exec').textContent=ultimaExec?'Última execução: '+ultimaExec+(filtroData?' | Filtrando: '+filtroData.split('-').reverse().join('/'):''):'';
   var ns='http://www.w3.org/2000/svg';
-
-  // serviços de cima (tudo exceto terra) — ordem invertida
   var topServs=servicos.filter(function(s){return s!=='terra'}).reverse();
   var SR=topServs.length;
   var temTerra=servicos.indexOf('terra')>=0;
-
-  // max camadas de terraplanagem
   var mxT=1;
   if(temTerra){APP.projeto.filter(function(p){return p.Servico==='terra'}).forEach(function(p){if(p.NumCamadas>mxT)mxT=p.NumCamadas})}
 
-  var CW=22,CH=24,G=3,L=75;
+  var CW=22,CH=22,G=3,L=85;
   var evtsFilt=APP.eventos.filter(function(ev){return ev.EstacaInicial<=eFim&&(ev.EstacaFinal||ev.EstacaInicial)>=eIni});
-  var evtRows=1;var evtByEst={};evtsFilt.forEach(function(ev){for(var x=ev.EstacaInicial;x<=(ev.EstacaFinal||ev.EstacaInicial);x++){evtByEst[x]=(evtByEst[x]||0)+1;if(evtByEst[x]>evtRows)evtRows=evtByEst[x]}});var EVT_H=evtsFilt.length>0?(35*evtRows+20):0;
-  var T=EVT_H+50;
-  var totalRows=SR+(temTerra?mxT:0);
-  var H=T+totalRows*(CH+G)+50;
-  var numEst=eFim-eIni+1;var W=L+numEst*(CW+G);if(W<800)W=800;
+  var evtRows=1;var evtByEst={};evtsFilt.forEach(function(ev){for(var x=ev.EstacaInicial;x<=(ev.EstacaFinal||ev.EstacaInicial);x++){evtByEst[x]=(evtByEst[x]||0)+1;if(evtByEst[x]>evtRows)evtRows=evtByEst[x]}});
+
+  var Y=10;
+  var EVT_ZONE_H=evtsFilt.length>0?(35*evtRows+10):0;
+  var EVT_START=Y;
+  Y+=EVT_ZONE_H;
+  if(evtsFilt.length>0)Y+=10;
+  var ESTACA_LABEL_Y=Y+12;
+  Y+=25;
+  var SERV_LINE_Y=Y;
+  Y+=5;
+  var SERV_START=Y;
+  var SERV_H=SR*(CH+G);
+  Y+=SERV_H;
+  Y+=12;
+  var TERRA_START=Y;
+  var TERRA_H=temTerra?mxT*(CH+G):0;
+  Y+=TERRA_H;
+  Y+=30;
+  var H=Y;
+
+  var numEst=eFim-eIni+1;var W=L+numEst*(CW+G)+10;if(W<800)W=800;
   svg.innerHTML='';svg.setAttribute('width',W);svg.setAttribute('height',H);svg.setAttribute('viewBox','0 0 '+W+' '+H);
 
+  // === ZONA DE EVENTOS ===
   if(evtsFilt.length>0){
     var evtSlots={};
-    evtsFilt.forEach(function(ev,idx){
+    evtsFilt.forEach(function(ev){
       var cor=CORES_EVENTO[ev.TipoEvento]||'#666';
       var eI=Math.max(ev.EstacaInicial,eIni);
       var eF=Math.min(ev.EstacaFinal||ev.EstacaInicial,eFim);
       var slot=0;
       for(var s=0;s<evtRows;s++){var free=true;for(var x=eI;x<=eF;x++){if(evtSlots[x+'-'+s]){free=false;break}}if(free){slot=s;break}}
       for(var x=eI;x<=eF;x++)evtSlots[x+'-'+slot]=true;
-      var evtY=18+slot*30;
+      var evtY=EVT_START+18+slot*35;
       if(eF>eI){
         var x1=L+(eI-eIni)*(CW+G)+CW/2,x2=L+(eF-eIni)*(CW+G)+CW/2;
-        var bar=document.createElementNS(ns,'rect');bar.setAttribute('x',x1-1);bar.setAttribute('y',evtY-4);bar.setAttribute('width',x2-x1+2);bar.setAttribute('height',8);bar.setAttribute('fill',cor);bar.setAttribute('opacity','0.25');bar.setAttribute('rx','3');svg.appendChild(bar);
+        var bar=document.createElementNS(ns,'rect');bar.setAttribute('x',x1-2);bar.setAttribute('y',evtY-5);bar.setAttribute('width',x2-x1+4);bar.setAttribute('height',10);bar.setAttribute('fill',cor);bar.setAttribute('opacity','0.2');bar.setAttribute('rx','4');svg.appendChild(bar);
         var c1=document.createElementNS(ns,'circle');c1.setAttribute('cx',x1);c1.setAttribute('cy',evtY);c1.setAttribute('r',6);c1.setAttribute('fill',cor);svg.appendChild(c1);
-        var c2=document.createElementNS(ns,'circle');c2.setAttribute('cx',x2);c2.setAttribute('cy',evtY);c2.setAttribute('r',4);c2.setAttribute('fill',cor);svg.appendChild(c2);
-        var lbl=document.createElementNS(ns,'text');lbl.setAttribute('x',(x1+x2)/2);lbl.setAttribute('y',evtY-8);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('font-size','10');lbl.setAttribute('fill',cor);lbl.textContent=(NOMES_EVENTO[ev.TipoEvento]||'')+(ev.Observacao?' - '+ev.Observacao:'');svg.appendChild(lbl);
+        var c2=document.createElementNS(ns,'circle');c2.setAttribute('cx',x2);c2.setAttribute('cy',evtY);c2.setAttribute('r',6);c2.setAttribute('fill',cor);svg.appendChild(c2);
+        var lbl=document.createElementNS(ns,'text');lbl.setAttribute('x',(x1+x2)/2);lbl.setAttribute('y',evtY-12);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('font-size','10');lbl.setAttribute('fill',cor);lbl.setAttribute('font-weight','500');lbl.textContent=(NOMES_EVENTO[ev.TipoEvento]||'')+(ev.Observacao?' - '+ev.Observacao:'');svg.appendChild(lbl);
       }else{
         var x=L+(eI-eIni)*(CW+G)+CW/2;
         var isSq=ev.TipoEvento==='corte'||ev.TipoEvento==='zona_urbana';
-        if(isSq){var sq=document.createElementNS(ns,'rect');sq.setAttribute('x',x-4);sq.setAttribute('y',evtY-4);sq.setAttribute('width',8);sq.setAttribute('height',8);sq.setAttribute('rx','2');sq.setAttribute('fill',cor);svg.appendChild(sq)}
-        else{var ci=document.createElementNS(ns,'circle');ci.setAttribute('cx',x);ci.setAttribute('cy',evtY);ci.setAttribute('r',4);ci.setAttribute('fill',cor);svg.appendChild(ci)}
-        var lbl=document.createElementNS(ns,'text');lbl.setAttribute('x',x);lbl.setAttribute('y',evtY-7);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('font-size','8');lbl.setAttribute('fill',cor);lbl.textContent=(NOMES_EVENTO[ev.TipoEvento]||'')+(ev.Observacao?' - '+ev.Observacao:'');svg.appendChild(lbl);
+        if(isSq){var sq=document.createElementNS(ns,'rect');sq.setAttribute('x',x-6);sq.setAttribute('y',evtY-6);sq.setAttribute('width',12);sq.setAttribute('height',12);sq.setAttribute('rx','2');sq.setAttribute('fill',cor);svg.appendChild(sq)}
+        else{var ci=document.createElementNS(ns,'circle');ci.setAttribute('cx',x);ci.setAttribute('cy',evtY);ci.setAttribute('r',6);ci.setAttribute('fill',cor);svg.appendChild(ci)}
+        var tk=document.createElementNS(ns,'line');tk.setAttribute('x1',x);tk.setAttribute('y1',evtY+8);tk.setAttribute('x2',x);tk.setAttribute('y2',ESTACA_LABEL_Y-14);tk.setAttribute('stroke',cor);tk.setAttribute('stroke-width','0.8');tk.setAttribute('stroke-dasharray','3,3');svg.appendChild(tk);
+        var lbl=document.createElementNS(ns,'text');lbl.setAttribute('x',x);lbl.setAttribute('y',evtY-10);lbl.setAttribute('text-anchor','middle');lbl.setAttribute('font-size','10');lbl.setAttribute('fill',cor);lbl.setAttribute('font-weight','500');lbl.textContent=(NOMES_EVENTO[ev.TipoEvento]||'')+(ev.Observacao?' - '+ev.Observacao:'');svg.appendChild(lbl);
       }
     });
-    var evtLine=document.createElementNS(ns,'line');evtLine.setAttribute('x1',L);evtLine.setAttribute('y1',EVT_H);evtLine.setAttribute('x2',W);evtLine.setAttribute('y2',EVT_H);evtLine.setAttribute('stroke','#ddd');evtLine.setAttribute('stroke-width','0.5');svg.appendChild(evtLine);
+    var sep1=document.createElementNS(ns,'line');sep1.setAttribute('x1',L-10);sep1.setAttribute('y1',EVT_START+EVT_ZONE_H+5);sep1.setAttribute('x2',W-5);sep1.setAttribute('y2',EVT_START+EVT_ZONE_H+5);sep1.setAttribute('stroke','#ccc');sep1.setAttribute('stroke-width','1');sep1.setAttribute('stroke-dasharray','6,4');svg.appendChild(sep1);
   }
 
-  // labels estacas
-  for(var e=eIni;e<=eFim;e+=5){var t=document.createElementNS(ns,'text');t.setAttribute('x',L+(e-eIni)*(CW+G)+CW/2);t.setAttribute('y',18);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','10');t.setAttribute('fill','#666');t.textContent=e;svg.appendChild(t)}
+  // === NÚMEROS DAS ESTACAS ===
+  for(var e=eIni;e<=eFim;e+=5){var t=document.createElementNS(ns,'text');t.setAttribute('x',L+(e-eIni)*(CW+G)+CW/2);t.setAttribute('y',ESTACA_LABEL_Y);t.setAttribute('text-anchor','middle');t.setAttribute('font-size','11');t.setAttribute('fill','#444');t.setAttribute('font-weight','500');t.textContent=e;svg.appendChild(t)}
 
-  // serviços do topo
+  // separador entre números e serviços
+  var sep2=document.createElementNS(ns,'line');sep2.setAttribute('x1',L-10);sep2.setAttribute('y1',SERV_LINE_Y);sep2.setAttribute('x2',W-5);sep2.setAttribute('y2',SERV_LINE_Y);sep2.setAttribute('stroke','#ddd');sep2.setAttribute('stroke-width','0.5');svg.appendChild(sep2);
+
+  // === SERVIÇOS DO TOPO (sub-base, base, tsd, asfalto) ===
   topServs.forEach(function(s,i){
-    var lb=document.createElementNS(ns,'text');lb.setAttribute('x',L-6);lb.setAttribute('y',T+i*(CH+G)+CH/2+3);lb.setAttribute('text-anchor','end');lb.setAttribute('font-size','10');lb.setAttribute('fill','#666');lb.textContent=NOMES[s];svg.appendChild(lb);
+    var lb=document.createElementNS(ns,'text');lb.setAttribute('x',L-8);lb.setAttribute('y',SERV_START+i*(CH+G)+CH/2+4);lb.setAttribute('text-anchor','end');lb.setAttribute('font-size','11');lb.setAttribute('fill','#555');lb.textContent=NOMES[s];svg.appendChild(lb);
     for(var e=eIni;e<=eFim;e++){
-      var r=document.createElementNS(ns,'rect');r.setAttribute('x',L+(e-eIni)*(CW+G));r.setAttribute('y',T+i*(CH+G));r.setAttribute('width',CW);r.setAttribute('height',CH);r.setAttribute('rx','1.5');
+      var r=document.createElementNS(ns,'rect');r.setAttribute('x',L+(e-eIni)*(CW+G));r.setAttribute('y',SERV_START+i*(CH+G));r.setAttribute('width',CW);r.setAttribute('height',CH);r.setAttribute('rx','2');
       var temProj=camadasProj(e,s)>0;
-      if(!temProj){r.setAttribute('fill','transparent');r.setAttribute('stroke','#ddd');r.setAttribute('stroke-width','0.3');r.setAttribute('stroke-dasharray','1,2')}
-      else{r.setAttribute('fill',svConcGraf(s,e)?CORES[s]:'#f5f5f5');r.setAttribute('stroke','#ccc');r.setAttribute('stroke-width','0.4')}
+      if(!temProj){r.setAttribute('fill','transparent');r.setAttribute('stroke','#e0e0e0');r.setAttribute('stroke-width','0.5');r.setAttribute('stroke-dasharray','2,2')}
+      else{r.setAttribute('fill',svConcGraf(s,e)?CORES[s]:'#f0f0f0');r.setAttribute('stroke',svConcGraf(s,e)?CORES[s]:'#ccc');r.setAttribute('stroke-width','0.5')}
+      var title=document.createElementNS(ns,'title');title.textContent='Estaca '+e+' — '+NOMES[s]+(temProj?(svConcGraf(s,e)?' (concluída)':' (pendente)'):' (sem projeto)');r.appendChild(title);
       svg.appendChild(r);
     }
   });
 
-  // terraplanagem (camadas para baixo)
+  // separador entre serviços e terraplanagem
   if(temTerra){
-    var yT=T+SR*(CH+G)+15;
-    var lt=document.createElementNS(ns,'text');lt.setAttribute('x',L-6);lt.setAttribute('y',yT+CH);lt.setAttribute('text-anchor','end');lt.setAttribute('font-size','10');lt.setAttribute('fill','#666');lt.textContent='Terraplan.';svg.appendChild(lt);
+    var sep3=document.createElementNS(ns,'line');sep3.setAttribute('x1',L-10);sep3.setAttribute('y1',TERRA_START-6);sep3.setAttribute('x2',W-5);sep3.setAttribute('y2',TERRA_START-6);sep3.setAttribute('stroke','#ddd');sep3.setAttribute('stroke-width','0.5');svg.appendChild(sep3);
+
+    // === TERRAPLANAGEM ===
+    var lt=document.createElementNS(ns,'text');lt.setAttribute('x',L-8);lt.setAttribute('y',TERRA_START+CH/2+4);lt.setAttribute('text-anchor','end');lt.setAttribute('font-size','11');lt.setAttribute('fill','#555');lt.textContent='Terraplan.';svg.appendChild(lt);
     for(var e=eIni;e<=eFim;e++){
       var n=camadasProj(e,'terra'),fe=camExecGraf(e,'terra');
       for(var c=1;c<=mxT;c++){
-        var r=document.createElementNS(ns,'rect');r.setAttribute('x',L+(e-eIni)*(CW+G));r.setAttribute('y',yT+(c-1)*(CH+G));r.setAttribute('width',CW);r.setAttribute('height',CH);r.setAttribute('rx','1.5');
-        if(c>n){r.setAttribute('fill','transparent');r.setAttribute('stroke','#ddd');r.setAttribute('stroke-width','0.3');r.setAttribute('stroke-dasharray','1,2')}
-        else{r.setAttribute('fill',(n-c+1)<=fe?CORES.terra:'#f5f5f5');r.setAttribute('stroke','#ccc');r.setAttribute('stroke-width','0.4')}
+        var r=document.createElementNS(ns,'rect');r.setAttribute('x',L+(e-eIni)*(CW+G));r.setAttribute('y',TERRA_START+(c-1)*(CH+G));r.setAttribute('width',CW);r.setAttribute('height',CH);r.setAttribute('rx','2');
+        if(c>n){r.setAttribute('fill','transparent');r.setAttribute('stroke','#e0e0e0');r.setAttribute('stroke-width','0.3');r.setAttribute('stroke-dasharray','2,2')}
+        else{var feita=(n-c+1)<=fe;r.setAttribute('fill',feita?CORES.terra:'#f0f0f0');r.setAttribute('stroke',feita?CORES.terra:'#ccc');r.setAttribute('stroke-width','0.5');
+          var title=document.createElementNS(ns,'title');title.textContent='Estaca '+e+' — Terraplanagem camada '+(n-c+1)+'/'+n+(feita?' (executada)':' (pendente)');r.appendChild(title);
+        }
         svg.appendChild(r);
       }
     }
