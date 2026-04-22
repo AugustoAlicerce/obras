@@ -487,10 +487,7 @@
     .diario-cal-cell.chuva{background:#1565C0;color:#fff}
     .diario-cal-cell.parcial{background:#78909C;color:#fff}
     .diario-cal-cell.feriado{background:#BDBDBD;color:#fff}
-    .diario-cal-cell.interc-maquina{background:#E65100;color:#fff}
-    .diario-cal-cell.interc-material{background:#F9A825;color:#fff}
-    .diario-cal-cell.interc-ambos{background:#E65100;color:#fff;border-color:#F9A825}
-    .diario-cal-cell.vazio-interc{background:#f5f5f5;color:#bbb}
+    .diario-cal-cell.futuro{opacity:.35;cursor:not-allowed}
     .diario-clima-btn{padding:5px 10px;border-radius:5px;border:2px solid #ddd;background:#f5f5f5;color:#555;font-size:12px;cursor:pointer;transition:all .15s;font-weight:600}
     .diario-clima-btn.active{border-color:currentColor;opacity:1}
     .diario-ficha{border:2px solid #0078d4;border-radius:8px;padding:14px;margin-top:12px;background:#fff;animation:fadeIn .2s}
@@ -767,29 +764,26 @@
             <div class="card-title" style="margin-bottom:0">Diário de Obra</div>
             <div style="display:flex;align-items:center;gap:8px">
               <button class="secondary" onclick="navegarMesDiario(-1)" style="padding:4px 10px;font-size:16px;line-height:1">‹</button>
-              <span id="diario-mes-label" style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#0078d4;min-width:120px;text-align:center"></span>
+              <span id="diario-mes-label" style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#0078d4;min-width:130px;text-align:center"></span>
               <button class="secondary" onclick="navegarMesDiario(1)" style="padding:4px 10px;font-size:16px;line-height:1">›</button>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div style="display:grid;grid-template-columns:1fr 200px;gap:20px;align-items:start">
             <div>
-              <div style="font-size:11px;font-weight:700;color:#1565C0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">☔ Clima do mês</div>
-              <div id="diario-cal-clima"></div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:2px;background:#3A9C4E;display:inline-block"></span>Normal</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:2px;background:#1565C0;display:inline-block"></span>Chuva</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:2px;background:#78909C;display:inline-block"></span>Parcial</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:2px;background:#BDBDBD;display:inline-block"></span>Feriado/FS</span>
+              <div id="diario-cal-unico"></div>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:center">
+                <span style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.3px">Clima:</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:12px;height:12px;border-radius:2px;background:#3A9C4E;display:inline-block"></span>Normal</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:12px;height:12px;border-radius:2px;background:#1565C0;display:inline-block"></span>Chuva</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:12px;height:12px;border-radius:2px;background:#78909C;display:inline-block"></span>Parcial</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:12px;height:12px;border-radius:2px;background:#BDBDBD;display:inline-block"></span>Feriado/FS</span>
+                <span style="color:#ccc">|</span>
+                <span style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.3px">Intercorrência:</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:8px;height:8px;border-radius:50%;background:#E65100;display:inline-block;border:1px solid #fff"></span>Máquina</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:8px;height:8px;border-radius:50%;background:#F9A825;display:inline-block;border:1px solid #fff"></span>Material</span>
               </div>
             </div>
-            <div>
-              <div style="font-size:11px;font-weight:700;color:#E65100;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">⚠ Intercorrências do mês</div>
-              <div id="diario-cal-interc"></div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:2px;background:#E65100;display:inline-block"></span>Máquina</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:2px;background:#F9A825;display:inline-block"></span>Material</span>
-              </div>
-            </div>
+            <div id="diario-resumo" style="background:#f5f7fa;border:1px solid #e0e0e0;border-radius:8px;padding:14px"></div>
           </div>
           <div id="diario-ficha-wrap"></div>
         </div>
@@ -1987,13 +1981,15 @@
     }
 
     function renderDiario() {
-      var calClima = document.getElementById('diario-cal-clima');
-      var calInterc = document.getElementById('diario-cal-interc');
+      var calUnico = document.getElementById('diario-cal-unico');
+      var resumoEl = document.getElementById('diario-resumo');
       var lblMes = document.getElementById('diario-mes-label');
-      if (!calClima || !calInterc) return;
+      if (!calUnico) return;
 
       var nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
       lblMes.textContent = nomesMes[mesDiario] + ' ' + anoDiario;
+
+      var hoje = new Date(); hoje.setHours(0,0,0,0);
 
       // Índice de fichas por data YYYY-MM-DD
       var fichas = {};
@@ -2002,72 +1998,119 @@
         if (d) fichas[d] = f;
       });
 
+      // Contadores para o resumo
+      var cont = {normal:0, chuva:0, parcial:0, feriado:0, maquina:0, material:0};
+
       var diasSemana = ['D','S','T','Q','Q','S','S'];
       var primeiroDia = new Date(anoDiario, mesDiario, 1).getDay();
       var totalDias = new Date(anoDiario, mesDiario + 1, 0).getDate();
 
-      function montarGrade(tipoCal) {
-        var html = '<div class="diario-cal-grid">';
-        diasSemana.forEach(function(d) { html += '<div class="diario-cal-header">' + d + '</div>'; });
-        for (var i = 0; i < primeiroDia; i++) html += '<div></div>';
-        for (var dia = 1; dia <= totalDias; dia++) {
-          var mm = String(mesDiario + 1).padStart(2, '0');
-          var dd = String(dia).padStart(2, '0');
-          var dataStr = anoDiario + '-' + mm + '-' + dd;
-          var dow = new Date(anoDiario, mesDiario, dia).getDay();
-          var fds = (dow === 0 || dow === 6);
-          var ficha = fichas[dataStr];
-          var cls, label = dia, title = '';
+      var html = '<div class="diario-cal-grid">';
+      diasSemana.forEach(function(d) { html += '<div class="diario-cal-header">' + d + '</div>'; });
+      for (var i = 0; i < primeiroDia; i++) html += '<div></div>';
 
-          if (tipoCal === 'clima') {
-            if (ficha && ficha.ClimaStatus) {
-              cls = ficha.ClimaStatus;
-              title = ficha.Observacao ? (ficha.Observacao).substring(0, 80) : '';
-            } else {
-              cls = fds ? 'fds-auto' : 'vazio';
-            }
-          } else {
-            var maq = ficha && (ficha.IntercorrenciaMaquina === true || ficha.IntercorrenciaMaquina === 'true' || ficha.IntercorrenciaMaquina === 1);
-            var mat = ficha && (ficha.IntercorrenciaMaterial === true || ficha.IntercorrenciaMaterial === 'true' || ficha.IntercorrenciaMaterial === 1);
-            if (maq && mat) { cls = 'interc-ambos'; title = '🔧 Máquina + 📦 Material'; }
-            else if (maq) { cls = 'interc-maquina'; title = '🔧 Quebra de máquina'; }
-            else if (mat) { cls = 'interc-material'; title = '📦 Aguardando material'; }
-            else { cls = fds ? 'vazio-interc' : 'vazio-interc'; }
-            if (ficha && ficha.Observacao && !title) title = ficha.Observacao.substring(0, 80);
-          }
+      for (var dia = 1; dia <= totalDias; dia++) {
+        var mm = String(mesDiario + 1).padStart(2, '0');
+        var dd2 = String(dia).padStart(2, '0');
+        var dataStr = anoDiario + '-' + mm + '-' + dd2;
+        var diaDate = new Date(anoDiario, mesDiario, dia);
+        var dow = diaDate.getDay();
+        var fds = (dow === 0 || dow === 6);
+        var futuro = diaDate > hoje;
+        var ficha = fichas[dataStr];
 
-          html += '<div class="diario-cal-cell ' + cls + '" ' +
-            'onclick="abrirFichaDia(\'' + dataStr + '\')" ' +
-            (title ? 'title="' + title.replace(/"/g, '&quot;') + '"' : '') + '>' +
-            label + '</div>';
+        var maq = ficha && (ficha.IntercorrenciaMaquina === true || ficha.IntercorrenciaMaquina === 'true' || ficha.IntercorrenciaMaquina === 1);
+        var mat = ficha && (ficha.IntercorrenciaMaterial === true || ficha.IntercorrenciaMaterial === 'true' || ficha.IntercorrenciaMaterial === 1);
+
+        // Cor de fundo (clima)
+        var cls;
+        if (ficha && ficha.ClimaStatus) {
+          cls = ficha.ClimaStatus;
+          if (cont[ficha.ClimaStatus] !== undefined) cont[ficha.ClimaStatus]++;
+        } else {
+          cls = fds ? 'fds-auto' : 'vazio';
         }
-        html += '</div>';
-        return html;
+        if (maq) cont.maquina++;
+        if (mat) cont.material++;
+
+        // Tooltip
+        var tooltipParts = [];
+        if (ficha && ficha.ClimaStatus) tooltipParts.push({normal:'Dia normal',chuva:'Chuva/Clima',parcial:'Dia parcial',feriado:'Feriado/FS'}[ficha.ClimaStatus] || ficha.ClimaStatus);
+        if (maq) tooltipParts.push('🔧 Máquina');
+        if (mat) tooltipParts.push('📦 Material');
+        if (ficha && ficha.Observacao) tooltipParts.push(ficha.Observacao.substring(0, 60));
+        var title = tooltipParts.join(' | ');
+
+        // Indicador de intercorrência (ponto no canto)
+        var dotHtml = '';
+        if (maq && mat) dotHtml = '<span style="position:absolute;bottom:2px;right:2px;width:6px;height:6px;border-radius:50%;background:#E65100;border:1px solid rgba(255,255,255,.8)"></span><span style="position:absolute;bottom:2px;right:9px;width:6px;height:6px;border-radius:50%;background:#F9A825;border:1px solid rgba(255,255,255,.8)"></span>';
+        else if (maq) dotHtml = '<span style="position:absolute;bottom:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#E65100;border:1px solid rgba(255,255,255,.8)"></span>';
+        else if (mat) dotHtml = '<span style="position:absolute;bottom:2px;right:2px;width:7px;height:7px;border-radius:50%;background:#F9A825;border:1px solid rgba(255,255,255,.8)"></span>';
+
+        // Estilo extra para futuro e para dia bloqueado
+        var extraStyle = futuro ? 'opacity:.35;cursor:not-allowed;' : '';
+        var onclick = futuro ? '' : 'onclick="abrirFichaDia(\'' + dataStr + '\')"';
+
+        html += '<div class="diario-cal-cell ' + cls + '" ' + onclick +
+          ' style="position:relative;' + extraStyle + '"' +
+          (title ? ' title="' + title.replace(/"/g, '&quot;') + '"' : '') + '>' +
+          dia + dotHtml + '</div>';
       }
+      html += '</div>';
+      calUnico.innerHTML = html;
 
-      calClima.innerHTML = montarGrade('clima');
-      calInterc.innerHTML = montarGrade('interc');
-
-      // Destacar dia já aberto (se houver)
+      // Destacar dia aberto
       var fichaWrap = document.getElementById('diario-ficha-wrap');
-      var dataAberta = fichaWrap.dataset.dataAberta;
+      var dataAberta = fichaWrap && fichaWrap.dataset.dataAberta;
       if (dataAberta) {
         document.querySelectorAll('.diario-cal-cell').forEach(function(el) {
-          el.classList.remove('selected');
+          var oc = el.getAttribute('onclick') || '';
+          if (oc.includes(dataAberta)) el.classList.add('selected');
+          else el.classList.remove('selected');
         });
-        // Marcar célula em ambos os calendários pelo onclick
-        var mm2 = String(mesDiario + 1).padStart(2, '0');
-        if (dataAberta.startsWith(anoDiario + '-' + mm2)) {
-          document.querySelectorAll('.diario-cal-cell').forEach(function(el) {
-            if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(dataAberta)) {
-              el.classList.add('selected');
-            }
-          });
-        }
+      }
+
+      // Painel de resumo
+      if (resumoEl) {
+        var totalRegistrados = cont.normal + cont.chuva + cont.parcial + cont.feriado;
+        var itens = [
+          {cor:'#3A9C4E', label:'Dias normais', val:cont.normal},
+          {cor:'#1565C0', label:'Com chuva', val:cont.chuva},
+          {cor:'#78909C', label:'Parciais', val:cont.parcial},
+          {cor:'#BDBDBD', label:'Feriado/FS', val:cont.feriado},
+        ];
+        var intercItens = [
+          {cor:'#E65100', label:'Máquina parada', val:cont.maquina},
+          {cor:'#F9A825', label:'Ag. material', val:cont.material},
+        ];
+        var rHtml = '<div style="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px">Resumo do mês</div>';
+        rHtml += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">CLIMA</div>';
+        itens.forEach(function(it) {
+          rHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">' +
+            '<span style="display:flex;align-items:center;gap:5px;font-size:12px"><span style="width:10px;height:10px;border-radius:2px;background:' + it.cor + ';display:inline-block;flex-shrink:0"></span>' + it.label + '</span>' +
+            '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700;color:#222">' + it.val + '</span>' +
+            '</div>';
+        });
+        rHtml += '<div style="border-top:1px solid #e0e0e0;margin:10px 0"></div>';
+        rHtml += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">INTERCORRÊNCIAS</div>';
+        intercItens.forEach(function(it) {
+          rHtml += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">' +
+            '<span style="display:flex;align-items:center;gap:5px;font-size:12px"><span style="width:10px;height:10px;border-radius:50%;background:' + it.cor + ';display:inline-block;flex-shrink:0"></span>' + it.label + '</span>' +
+            '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:700;color:#222">' + it.val + '</span>' +
+            '</div>';
+        });
+        rHtml += '<div style="border-top:1px solid #e0e0e0;margin:10px 0"></div>';
+        rHtml += '<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:#888">Registrados</span><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;color:#0078d4">' + totalRegistrados + ' dias</span></div>';
+        resumoEl.innerHTML = rHtml;
       }
     }
 
     function abrirFichaDia(dataStr) {
+      // Bloquear datas futuras
+      var hoje = new Date(); hoje.setHours(0,0,0,0);
+      var diaDate = new Date(dataStr + 'T12:00:00');
+      if (diaDate > hoje) return;
+
       var fichaWrap = document.getElementById('diario-ficha-wrap');
       fichaWrap.dataset.dataAberta = dataStr;
 
@@ -2151,6 +2194,8 @@
     }
 
     async function salvarFichaDiario(dataStr) {
+      var hoje = new Date(); hoje.setHours(0,0,0,0);
+      if (new Date(dataStr + 'T12:00:00') > hoje) return;
       var w = document.getElementById('diario-ficha-wrap');
       var clima = w.dataset.climaSel || 'normal';
       var maq = document.getElementById('diario-maq').checked;
