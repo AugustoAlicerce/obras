@@ -163,14 +163,10 @@ table tr:hover td{background:#fafafa}
   <div id="tab-registrar" style="display:none">
     <div class="card">
       <div class="card-title">Registrar execução</div>
-      <div style="background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#0050a0;line-height:1.7">
+      <div style="background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0050a0;line-height:1.8">
         <strong>Como funciona o cadastro por células (100m):</strong><br>
-        • Cada <strong>célula = 5 estacas = 100m</strong> (estacas espaçadas a cada 20m).<br>
-        • Os campos <em>Estaca início</em> e <em>Estaca fim</em> devem ser <strong>múltiplos de 5</strong> (0, 5, 10, 15, 20...).<br>
-        • A <strong>estaca fim é o início da última célula</strong> que deseja registrar. Exemplos:<br>
-        &nbsp;&nbsp;&mdash; 1 célula (100m): início=<strong>0</strong>, fim=<strong>0</strong> → pinta km 0+000 a 0+100.<br>
-        &nbsp;&nbsp;&mdash; 2 células (200m): início=<strong>0</strong>, fim=<strong>5</strong> → pinta km 0+000 a 0+200.<br>
-        &nbsp;&nbsp;&mdash; 5 células (500m): início=<strong>0</strong>, fim=<strong>20</strong> → pinta km 0+000 a 0+500.
+        • Cada célula = 5 estacas = 100m (estacas espaçadas a cada 20m).<br>
+        • A estaca fim é calculada automaticamente: para 1 célula fim = início + 4, para 2 células fim = início + 9, e assim por diante.
       </div>
       <div class="form-grid">
         <div class="form-field"><label>Data</label><input type="date" id="r-data"></div>
@@ -180,8 +176,8 @@ table tr:hover td{background:#fafafa}
           <div class="km-hint" id="r-est-km"></div>
         </div>
         <div class="form-field">
-          <label>Estaca fim (múltiplo de 5)</label>
-          <input type="number" id="r-est-fim" min="0" step="5" placeholder="Ex: 10">
+          <label>Estaca fim</label>
+          <input type="number" id="r-est-fim" min="0" step="5" placeholder="—" disabled>
           <div class="km-hint" id="r-est-fim-km"></div>
         </div>
         <div class="form-field"><label>Serviço</label><select id="r-serv" onchange="atualizarInfoRegistro()"><option value="">Selecione...</option></select></div>
@@ -322,6 +318,12 @@ var CORES = {
   tsd:'#888780', micro:'#9C3D72', cbuq:'#2C2C2A'
 };
 var ORDEM_DEFAULT = ['terra','sub','base','recicl','imprim','tsd','micro','cbuq'];
+// Nomes curtos para rótulos do gráfico SVG (max ~11 chars)
+var NOMES_CHART = {
+  terra:'Terraplan.', sub:'Sub-base', base:'Base',
+  recicl:'Reciclagem', imprim:'Imprimação', tsd:'TSD',
+  micro:'Microrev.', cbuq:'CBUQ'
+};
 
 var TIPOS_EVENTO = ['bueiro','riacho','ponte','zona_urbana','corte','intersecao','praca','variante','cerca','fauna'];
 var NOMES_EVENTO = {bueiro:'Bueiro',riacho:'Riacho/Rio',ponte:'Ponte/Viaduto',zona_urbana:'Zona urbana',corte:'Corte em rocha',intersecao:'Interseção',praca:'Praça/Retorno',variante:'Variante',cerca:'Cerca',fauna:'Passagem fauna'};
@@ -562,7 +564,7 @@ function renderGraficoFaixas(){
 
   // CW calculado 1x com base em STRIP_CELLS (faixa cheia = 50 células)
   // Todas as faixas usam o mesmo CW; a última faixa (parcial) ficará menor
-  var _L=88,_rp=8;
+  var _L=104,_rp=8;
   var _containerW=(container.clientWidth||1200)-20;
   var CW_GLOBAL=Math.max(14,Math.floor((_containerW-_L-_rp)/STRIP_CELLS));
 
@@ -605,7 +607,7 @@ function renderFaixaSVG(celIni,celFim,servicos,execFiltrada,cwGlobal){
   }
 
   var numCel=celFim-celIni+1;
-  var L=88;
+  var L=104; // espaço suficiente para "Reciclagem" e "Imprimação"
   var rightPad=8;
   // usa CW global (mesmo para todas as faixas); largura total varia pelo nº real de células
   var CW=cwGlobal||Math.max(14,Math.floor(((document.getElementById('faixas-container').clientWidth||1200)-20-L-rightPad)/STRIP_CELLS));
@@ -704,7 +706,7 @@ function renderFaixaSVG(celIni,celFim,servicos,execFiltrada,cwGlobal){
   // === SERVIÇOS DO TOPO ===
   topServs.forEach(function(s,i){
     var lb=document.createElementNS(ns,'text');lb.setAttribute('x',L-8);lb.setAttribute('y',SERV_START+i*(CH+G)+CH/2+4);lb.setAttribute('text-anchor','end');lb.setAttribute('font-size','10');lb.setAttribute('fill','#555');lb.setAttribute('font-weight','600');
-    lb.textContent=NOMES[s].length>9?NOMES[s].substring(0,9)+'…':NOMES[s];svg.appendChild(lb);
+    lb.textContent=NOMES_CHART[s]||NOMES[s];svg.appendChild(lb);
     for(var c=celIni;c<=celFim;c++){
       var gs=c*CELULA_ESTACAS;
       var r=document.createElementNS(ns,'rect');r.setAttribute('x',L+(c-celIni)*CW);r.setAttribute('y',SERV_START+i*(CH+G));r.setAttribute('width',CW-1);r.setAttribute('height',CH);r.setAttribute('rx','2');
@@ -875,7 +877,7 @@ function popularSelectEventos(){
 
 function atualizarKmHints(){
   var campos=[
-    {inp:'r-est',hint:'r-est-km'},{inp:'r-est-fim',hint:'r-est-fim-km'},
+    {inp:'r-est',hint:'r-est-km'},
     {inp:'p-ini',hint:'p-ini-km'},{inp:'p-fim',hint:'p-fim-km'},
     {inp:'ev-ini',hint:'ev-ini-km'},{inp:'ev-fim',hint:'ev-fim-km'}
   ];
@@ -885,6 +887,16 @@ function atualizarKmHints(){
     var v=parseInt(inp.value);
     if(!isNaN(v))hint.textContent=estakaParaKm(v);else hint.textContent='';
   });
+  // r-est-fim: mostra o limite final da última célula (gsFim + 5 estacas)
+  var fimEl=document.getElementById('r-est-fim'),fimHint=document.getElementById('r-est-fim-km');
+  if(fimEl&&fimHint){
+    var vFim=parseInt(fimEl.value);
+    if(!isNaN(vFim)){
+      var gsFim=normalizarEstaca(vFim);
+      var numCelH=(gsFim-normalizarEstaca(parseInt(document.getElementById('r-est').value)||0))/CELULA_ESTACAS+1;
+      fimHint.textContent='→ até '+estakaParaKm(gsFim+CELULA_ESTACAS)+' ('+numCelH+' célula(s) = '+numCelH*100+'m)';
+    }else fimHint.textContent='';
+  }
 }
 
 /* =================================================================
@@ -916,36 +928,52 @@ async function excluirEstaca(itemId){
 function renderServicosObra(){
   var container=document.getElementById('servicos-obra');
   var atuais=getServicosObra();
+  // garante que terra seja sempre o primeiro na ordem
   var ordem=getOrdemServicos();
-  // conta só os selecionados para exibir sequência
+  var idxTerra=ordem.indexOf('terra');
+  if(idxTerra>0){ordem.splice(idxTerra,1);ordem.unshift('terra');}
+
   var seqNum=0;
   var html='<div class="servicos-ordem-list">';
   ordem.forEach(function(s,i){
     var ativo=atuais.indexOf(s)>=0;
+    var isTerra=s==='terra';
     var checked=ativo?'checked':'';
     if(ativo)seqNum++;
     var seqLabel=ativo
       ?'<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#0078d4;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">'+seqNum+'</span>'
       :'<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e0e0e0;color:#999;font-size:11px;flex-shrink:0">&mdash;</span>';
-    html+='<div class="servico-item" style="'+(ativo?'border-left:3px solid '+CORES[s]+';':'opacity:.65;')+'">'+
+    var reqLabel=ativo&&seqNum>1?' <span style="font-size:11px;color:#888">(requer '+NOMES[ordem[i-1]]+')</span>':'';
+    var lockBadge=isTerra?'<span style="font-size:10px;color:#888;padding:1px 6px;border:1px solid #ddd;border-radius:4px;margin-left:6px">1ª sempre</span>':'';
+    var reorderBtns=isTerra
+      ? '<span style="font-size:10px;color:#bbb;padding:2px 8px">fixo</span>'
+      : (
+          (i>1?'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\''+s+'\',-1)">↑</button>':'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↑</button>')+
+          (i<ordem.length-1?'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\''+s+'\',1)">↓</button>':'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↓</button>')
+        );
+    html+='<div class="servico-item" style="'+(ativo?'border-left:3px solid '+CORES[s]+';':'opacity:.65;')+(isTerra?'background:#fffdf5;':'')+'">'+
       seqLabel+
-      '<label style="flex:1"><input type="checkbox" value="'+s+'" '+checked+'> '+
-      '<span style="width:14px;height:14px;background:'+CORES[s]+';display:inline-block;border-radius:3px;border:1px solid rgba(0,0,0,.1);vertical-align:middle"></span>&nbsp;'+
-      '<strong>'+NOMES[s]+'</strong>'+(ativo&&seqNum>1?' <span style="font-size:11px;color:#888">(requer '+NOMES[ordem[i-1]]+')</span>':'')+
+      '<label style="flex:1"><input type="checkbox" value="'+s+'" '+checked+(isTerra?' disabled checked':'')+'>'+
+      '<span style="width:14px;height:14px;background:'+CORES[s]+';display:inline-block;border-radius:3px;border:1px solid rgba(0,0,0,.1);vertical-align:middle;margin:0 4px"></span>'+
+      '<strong>'+NOMES[s]+'</strong>'+lockBadge+reqLabel+
       '</label>'+
-      '<div class="reorder-btns">'+
-      (i>0?'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\''+s+'\',-1)">↑</button>':'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↑</button>')+
-      (i<ordem.length-1?'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\''+s+'\',1)">↓</button>':'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↓</button>')+
-      '</div></div>';
+      '<div class="reorder-btns">'+reorderBtns+'</div></div>';
   });
-  html+='</div><div style="margin-top:10px;font-size:12px;color:#888">O número em azul indica a sequência de pré-requisito. Use ↑↓ para ajustar a ordem. A posição da Imprimação pode ser colocada em qualquer ponto.</div>';
+  html+='</div><div style="margin-top:10px;font-size:12px;color:#888">O número em azul indica a sequência de pré-requisito. Terraplanagem é sempre o primeiro serviço (fundação da via). Use ↑↓ para ajustar a ordem dos demais. A Imprimação pode ser posicionada livremente.</div>';
   container.innerHTML=html;
+  // Garante que terra esteja sempre nos selecionados
+  var terraCheck=container.querySelector('input[value="terra"]');
+  if(terraCheck)terraCheck.checked=true;
 }
 
 function moverServico(sv,dir){
+  if(sv==='terra')return; // terra é sempre primeira, não pode ser movida
   var ordem=getOrdemServicos();
+  // garante terra no índice 0
+  var idxT=ordem.indexOf('terra');if(idxT>0){ordem.splice(idxT,1);ordem.unshift('terra');}
   var idx=ordem.indexOf(sv);if(idx<0)return;
-  var ni=idx+dir;if(ni<0||ni>=ordem.length)return;
+  var ni=idx+dir;
+  if(ni<=0||ni>=ordem.length)return; // não pode ultrapassar terra (posição 0)
   ordem.splice(idx,1);ordem.splice(ni,0,sv);
   if(!APP.obraAtual)return;
   APP.obraAtual.OrdemServicos=ordem.join(';');
@@ -1006,9 +1034,27 @@ function bindEvents(){
   document.getElementById('g-data-limpar').onclick=function(){document.getElementById('g-data-filtro').value='';renderGraficoFaixas()};
   document.getElementById('btn-debug').onclick=function(){debugVisible=!debugVisible;if(!debugVisible)document.getElementById('debug-area').innerHTML='';else renderDebug()};
 
-  // Km hints
-  ['r-est','r-est-fim','p-ini','p-fim','ev-ini','ev-fim'].forEach(function(id){
-    var el=document.getElementById(id);if(el)el.oninput=function(){atualizarKmHints();atualizarInfoRegistro()};
+  // Estaca início — habilita e configura estaca fim ao digitar
+  document.getElementById('r-est').oninput=function(){
+    var estIni=parseInt(this.value);
+    var fim=document.getElementById('r-est-fim');
+    var fimKm=document.getElementById('r-est-fim-km');
+    if(!isNaN(estIni)&&estIni>=0&&estIni%CELULA_ESTACAS===0){
+      fim.disabled=false;
+      var minFim=estIni+CELULA_ESTACAS-1; // primeiro fim válido: início+4
+      fim.min=minFim;
+      fim.step=CELULA_ESTACAS; // passo de 5: 4, 9, 14, 19...
+      // só redefine o valor se estiver vazio ou menor que o mínimo
+      if(!fim.value||parseInt(fim.value)<minFim){fim.value=minFim;}
+    }else{
+      fim.disabled=true;fim.value='';fimKm.textContent='';
+    }
+    atualizarKmHints();atualizarInfoRegistro();
+  };
+  document.getElementById('r-est-fim').oninput=function(){atualizarKmHints();atualizarInfoRegistro()};
+  // Km hints para outros campos
+  ['p-ini','p-fim','ev-ini','ev-fim'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.oninput=function(){atualizarKmHints();};
   });
   document.getElementById('r-serv').onchange=atualizarInfoRegistro;
   document.getElementById('pf-serv').onchange=renderProjeto;
@@ -1048,7 +1094,8 @@ function bindEvents(){
     if(!podeRegistrar()){msg.innerHTML='<div class="alert alert-err">Sem permissão.</div>';return}
     if(!data){msg.innerHTML='<div class="alert alert-err">Informe a data.</div>';return}
     if(isNaN(estIni)){msg.innerHTML='<div class="alert alert-err">Informe a estaca início.</div>';return}
-    if(isNaN(estFim))estFim=estIni;
+    if(isNaN(estFim)||estFim<estIni+CELULA_ESTACAS-1){msg.innerHTML='<div class="alert alert-err">Informe a estaca fim (mín. início+'+(CELULA_ESTACAS-1)+' = '+(estIni+CELULA_ESTACAS-1)+').</div>';return}
+    if((estFim-estIni+1)%CELULA_ESTACAS!==0){msg.innerHTML='<div class="alert alert-err">Estaca fim inválida. Para início='+estIni+' os valores válidos são: '+(estIni+CELULA_ESTACAS-1)+', '+(estIni+2*CELULA_ESTACAS-1)+', '+(estIni+3*CELULA_ESTACAS-1)+'... (incrementos de '+CELULA_ESTACAS+').</div>';return}
     var gsIni=normalizarEstaca(estIni);
     var gsFim=normalizarEstaca(estFim);
     if(gsFim<gsIni){msg.innerHTML='<div class="alert alert-err">Estaca fim menor que início.</div>';return}
