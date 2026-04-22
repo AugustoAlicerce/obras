@@ -163,8 +163,14 @@ table tr:hover td{background:#fafafa}
   <div id="tab-registrar" style="display:none">
     <div class="card">
       <div class="card-title">Registrar execução</div>
-      <div style="background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0050a0">
-        <strong>Atenção:</strong> Cada célula = 5 estacas = 100m. Informe estacas em múltiplos de 5 (Ex: 0, 5, 10, 15...).
+      <div style="background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:#0050a0;line-height:1.7">
+        <strong>Como funciona o cadastro por células (100m):</strong><br>
+        • Cada <strong>célula = 5 estacas = 100m</strong> (estacas espaçadas a cada 20m).<br>
+        • Os campos <em>Estaca início</em> e <em>Estaca fim</em> devem ser <strong>múltiplos de 5</strong> (0, 5, 10, 15, 20...).<br>
+        • A <strong>estaca fim é o início da última célula</strong> que deseja registrar. Exemplos:<br>
+        &nbsp;&nbsp;&mdash; 1 célula (100m): início=<strong>0</strong>, fim=<strong>0</strong> → pinta km 0+000 a 0+100.<br>
+        &nbsp;&nbsp;&mdash; 2 células (200m): início=<strong>0</strong>, fim=<strong>5</strong> → pinta km 0+000 a 0+200.<br>
+        &nbsp;&nbsp;&mdash; 5 células (500m): início=<strong>0</strong>, fim=<strong>20</strong> → pinta km 0+000 a 0+500.
       </div>
       <div class="form-grid">
         <div class="form-field"><label>Data</label><input type="date" id="r-data"></div>
@@ -209,7 +215,7 @@ table tr:hover td{background:#fafafa}
   <!-- PROJETO -->
   <div id="tab-projeto" style="display:none">
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <button class="tab-btn active" data-subtab="sub-servicos" onclick="switchSubTab(this)" style="border-radius:6px;margin-bottom:0;border:1px solid #e0e0e0">Serviços da obra</button>
+      <button class="sub-tab-btn active" data-subtab="sub-servicos" onclick="switchSubTab(this)">Serviços da obra</button>
       <button class="sub-tab-btn" data-subtab="sub-estacas" onclick="switchSubTab(this)">Estacas</button>
       <button class="sub-tab-btn" data-subtab="sub-eventos" onclick="switchSubTab(this)">Outros serviços</button>
     </div>
@@ -242,7 +248,7 @@ table tr:hover td{background:#fafafa}
           </div>
         </div>
         <div class="form-grid">
-          <div class="form-field"><label>Nº de camadas</label><input type="number" id="p-cam" min="1" value="1"><div style="font-size:11px;color:#888;margin-top:4px">Terraplanagem pode ter múltiplas camadas. Demais serviços geralmente 1.</div></div>
+          <div class="form-field"><label>Nº de camadas</label><input type="number" id="p-cam" min="1" value="1"><div style="font-size:11px;color:#888;margin-top:4px">Qualquer serviço pode ter múltiplas camadas. Terraplanagem costuma ter mais camadas (aterros); pavimentação geralmente 1 por serviço.</div></div>
         </div>
         <button class="primary" id="btn-proj">Aplicar ao intervalo</button>
         <div id="p-msg"></div>
@@ -554,16 +560,22 @@ function renderGraficoFaixas(){
 
   container.innerHTML='';
 
+  // CW calculado 1x com base em STRIP_CELLS (faixa cheia = 50 células)
+  // Todas as faixas usam o mesmo CW; a última faixa (parcial) ficará menor
+  var _L=88,_rp=8;
+  var _containerW=(container.clientWidth||1200)-20;
+  var CW_GLOBAL=Math.max(14,Math.floor((_containerW-_L-_rp)/STRIP_CELLS));
+
   for(var stripStart=celIni;stripStart<=celFim;stripStart+=STRIP_CELLS){
     var stripEnd=Math.min(stripStart+STRIP_CELLS-1,celFim);
-    var wrap=criarFaixa(stripStart,stripEnd,servicos,execFiltrada);
+    var wrap=criarFaixa(stripStart,stripEnd,servicos,execFiltrada,CW_GLOBAL);
     container.appendChild(wrap);
   }
 
   atualizarPercentuais();
 }
 
-function criarFaixa(celIni,celFim,servicos,execFiltrada){
+function criarFaixa(celIni,celFim,servicos,execFiltrada,cwGlobal){
   var wrap=document.createElement('div');
   wrap.className='strip-wrap';
 
@@ -575,13 +587,13 @@ function criarFaixa(celIni,celFim,servicos,execFiltrada){
 
   var body=document.createElement('div');
   body.className='strip-body';
-  var svg=renderFaixaSVG(celIni,celFim,servicos,execFiltrada);
+  var svg=renderFaixaSVG(celIni,celFim,servicos,execFiltrada,cwGlobal);
   body.appendChild(svg);
   wrap.appendChild(body);
   return wrap;
 }
 
-function renderFaixaSVG(celIni,celFim,servicos,execFiltrada){
+function renderFaixaSVG(celIni,celFim,servicos,execFiltrada,cwGlobal){
   var ns='http://www.w3.org/2000/svg';
   var temTerra=servicos.indexOf('terra')>=0;
   var topServs=servicos.filter(function(s){return s!=='terra'}).reverse();
@@ -593,11 +605,10 @@ function renderFaixaSVG(celIni,celFim,servicos,execFiltrada){
   }
 
   var numCel=celFim-celIni+1;
-  var containerW=(document.getElementById('faixas-container').clientWidth||1200)-20;
   var L=88;
   var rightPad=8;
-  var available=containerW-L-rightPad;
-  var CW=Math.max(14,Math.floor(available/numCel));
+  // usa CW global (mesmo para todas as faixas); largura total varia pelo nº real de células
+  var CW=cwGlobal||Math.max(14,Math.floor(((document.getElementById('faixas-container').clientWidth||1200)-20-L-rightPad)/STRIP_CELLS));
   var W=L+numCel*CW+rightPad;
   var G=2;
   var CH=22;
@@ -906,19 +917,28 @@ function renderServicosObra(){
   var container=document.getElementById('servicos-obra');
   var atuais=getServicosObra();
   var ordem=getOrdemServicos();
+  // conta só os selecionados para exibir sequência
+  var seqNum=0;
   var html='<div class="servicos-ordem-list">';
   ordem.forEach(function(s,i){
-    var checked=atuais.indexOf(s)>=0?'checked':'';
-    html+='<div class="servico-item">'+
-      '<label><input type="checkbox" value="'+s+'" '+checked+'> '+
-      '<span style="width:14px;height:14px;background:'+CORES[s]+';display:inline-block;border-radius:3px;border:1px solid rgba(0,0,0,.1)"></span>&nbsp;'+
-      NOMES[s]+'</label>'+
+    var ativo=atuais.indexOf(s)>=0;
+    var checked=ativo?'checked':'';
+    if(ativo)seqNum++;
+    var seqLabel=ativo
+      ?'<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#0078d4;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">'+seqNum+'</span>'
+      :'<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e0e0e0;color:#999;font-size:11px;flex-shrink:0">&mdash;</span>';
+    html+='<div class="servico-item" style="'+(ativo?'border-left:3px solid '+CORES[s]+';':'opacity:.65;')+'">'+
+      seqLabel+
+      '<label style="flex:1"><input type="checkbox" value="'+s+'" '+checked+'> '+
+      '<span style="width:14px;height:14px;background:'+CORES[s]+';display:inline-block;border-radius:3px;border:1px solid rgba(0,0,0,.1);vertical-align:middle"></span>&nbsp;'+
+      '<strong>'+NOMES[s]+'</strong>'+(ativo&&seqNum>1?' <span style="font-size:11px;color:#888">(requer '+NOMES[ordem[i-1]]+')</span>':'')+
+      '</label>'+
       '<div class="reorder-btns">'+
       (i>0?'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\''+s+'\',-1)">↑</button>':'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↑</button>')+
       (i<ordem.length-1?'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\''+s+'\',1)">↓</button>':'<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↓</button>')+
       '</div></div>';
   });
-  html+='</div><div style="margin-top:10px;font-size:12px;color:#888">Use ↑↓ para definir a ordem de pré-requisito. A posição da Imprimação pode ser ajustada livremente.</div>';
+  html+='</div><div style="margin-top:10px;font-size:12px;color:#888">O número em azul indica a sequência de pré-requisito. Use ↑↓ para ajustar a ordem. A posição da Imprimação pode ser colocada em qualquer ponto.</div>';
   container.innerHTML=html;
 }
 
@@ -939,7 +959,7 @@ function switchSubTab(btn){
   var tabs=document.querySelectorAll('#tab-projeto > div[id^="sub-"]');
   tabs.forEach(function(t){t.style.display='none'});
   document.getElementById(btn.dataset.subtab).style.display='block';
-  var btns=btn.parentElement.querySelectorAll('.tab-btn,.sub-tab-btn');
+  var btns=btn.parentElement.querySelectorAll('.sub-tab-btn');
   btns.forEach(function(b){b.classList.remove('active')});
   btn.classList.add('active');
   if(btn.dataset.subtab==='sub-estacas'){popularSelects();renderProjeto()}
