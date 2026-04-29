@@ -1194,15 +1194,29 @@
       async deletarEvento(id) { return SP.deletarItem(LISTA_EVENTOS, id) },
       async registrarInicioEvento(id, dataInicio, obs) {
         var c = { Status: 'emexecucao' };
-        if (dataInicio) c.DataInicio = dataInicio;
+        if (dataInicio) c.DataInicio = dataInicio.length === 10 ? dataInicio + 'T00:00:00Z' : dataInicio;
         if (obs) c.ObsExecucao = obs;
-        return SP.atualizarItem(LISTA_EVENTOS, id, c);
+        try {
+          return await SP.atualizarItem(LISTA_EVENTOS, id, c);
+        } catch(e) {
+          if (e.message && e.message.includes('400') && (c.DataInicio || c.ObsExecucao)) {
+            return await SP.atualizarItem(LISTA_EVENTOS, id, { Status: 'emexecucao' });
+          }
+          throw e;
+        }
       },
       async registrarFimEvento(id, dataFim, obs) {
         var c = { Status: 'executado' };
-        if (dataFim) c.DataFim = dataFim;
+        if (dataFim) c.DataFim = dataFim.length === 10 ? dataFim + 'T00:00:00Z' : dataFim;
         if (obs) c.ObsExecucao = obs;
-        return SP.atualizarItem(LISTA_EVENTOS, id, c);
+        try {
+          return await SP.atualizarItem(LISTA_EVENTOS, id, c);
+        } catch(e) {
+          if (e.message && e.message.includes('400') && (c.DataFim || c.ObsExecucao)) {
+            return await SP.atualizarItem(LISTA_EVENTOS, id, { Status: 'executado' });
+          }
+          throw e;
+        }
       },
       async listarAnexos(lista, itemId) { return SP.listarAnexos(lista, itemId) },
       async uploadAnexo(lista, itemId, fileName, buffer) { return SP.uploadAnexo(lista, itemId, fileName, buffer) },
@@ -2679,7 +2693,7 @@
       if(!anexos||!anexos.length) return '<div style="color:#bbb;font-size:12px;padding:6px 0">Nenhuma foto.</div>';
       var h='<div class="foto-thumb-grid">';
       anexos.forEach(function(a,idx){
-        var url=SHAREPOINT_SITE_URL+a.ServerRelativeUrl;
+        var url='https://'+SHAREPOINT_HOST+a.ServerRelativeUrl;
         h+='<div class="foto-thumb" onclick="abrirLightbox(window._lbFotos_'+itemId+','+idx+')" title="'+a.FileName+'">';
         h+='<img data-sp-url="'+url+'" src="" alt="'+a.FileName+'" style="background:#eee">';
         h+='<button class="foto-thumb-del" onclick="event.stopPropagation();deletarFoto(\''+lista+'\','+itemId+',\''+a.FileName+'\',function(){'+onDelete+'})">✕</button>';
@@ -2696,12 +2710,12 @@
       sec.innerHTML = '<div style="color:#aaa;font-size:12px">Carregando fotos...</div>';
       try {
         var anexos = await DataAPI.listarAnexos(LISTA_DIARIO, fichaId);
-        window['_lbFotos_'+fichaId] = anexos.map(function(a){return {url:SHAREPOINT_SITE_URL+a.ServerRelativeUrl,nome:a.FileName,data:'',tipo:'Diário de Obra'};});
+        window['_lbFotos_'+fichaId] = anexos.map(function(a){return {url:'https://'+SHAREPOINT_HOST+a.ServerRelativeUrl,nome:a.FileName,data:'',tipo:'Diário de Obra'};});
         var onDel = 'loadFotosDiario('+fichaId+')';
         sec.innerHTML = renderThumbGrid(anexos, LISTA_DIARIO, fichaId, onDel);
         _processarImgsSP(sec);
         window['_lbFotos_'+fichaId] = anexos.map(function(a){
-          var url=SHAREPOINT_SITE_URL+a.ServerRelativeUrl;
+          var url='https://'+SHAREPOINT_HOST+a.ServerRelativeUrl;
           return {url:_imgCache[url]||url, nome:a.FileName, data:'', tipo:'Diário de Obra'};
         });
       } catch(e) {
@@ -2817,10 +2831,10 @@
         var html='';
         grupos.forEach(function(g){
           var offset=allFotos.length;
-          g.anexos.forEach(function(a){allFotos.push({url:SHAREPOINT_SITE_URL+a.ServerRelativeUrl,nome:a.FileName,data:g.titulo,tipo:g.subtitulo});});
+          g.anexos.forEach(function(a){allFotos.push({url:'https://'+SHAREPOINT_HOST+a.ServerRelativeUrl,nome:a.FileName,data:g.titulo,tipo:g.subtitulo});});
           html+='<div class="galeria-grupo"><div class="galeria-grupo-header">'+g.titulo+'<span class="galeria-grupo-sub">'+g.subtitulo+'</span></div><div class="galeria-grid">';
           g.anexos.forEach(function(a,i){
-            var url=SHAREPOINT_SITE_URL+a.ServerRelativeUrl;
+            var url='https://'+SHAREPOINT_HOST+a.ServerRelativeUrl;
             html+='<div class="galeria-item" onclick="abrirLightbox(_galeriaFotos,'+(offset+i)+')"><img data-sp-url="'+url+'" src="" alt="'+a.FileName+'" style="background:#eee"></div>';
           });
           html+='</div></div>';
