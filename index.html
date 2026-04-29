@@ -2159,7 +2159,8 @@
 
     function abrirFichaDia(dataStr) {
       var hoje = new Date(); hoje.setHours(0,0,0,0);
-      if (new Date(dataStr+'T12:00:00') > hoje) return;
+      var hojeStr = hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+      if (dataStr > hojeStr) return;
       _diarioEqsRemovidos = [];
 
       var fw = document.getElementById('diario-ficha-wrap');
@@ -2295,7 +2296,8 @@
 
     async function salvarFichaDiario(dataStr) {
       var hoje = new Date(); hoje.setHours(0,0,0,0);
-      if (new Date(dataStr+'T12:00:00') > hoje) return;
+      var hojeStr = hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
+      if (dataStr > hojeStr) return;
       var btn = document.getElementById('btn-salvar-ficha');
       var msg = document.getElementById('diario-msg');
       btn.disabled = true; btn.textContent = 'Salvando...';
