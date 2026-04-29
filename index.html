@@ -1079,6 +1079,9 @@
     var mesDiario = new Date().getMonth();
     var anoDiario = new Date().getFullYear();
     var _diarioEqsRemovidos = []; // IDs de equipamentos removidos na ficha aberta
+    var _fotosQueue = [];         // File[] aguardando upload junto com a ficha
+    var _fotosQueuePreviews = []; // blob URLs para preview local
+    var _imgCache = {};           // cache de blob URLs para imagens SP autenticadas
 
     /* =================================================================
        CONSTANTES DE SERVIÇOS
@@ -1189,8 +1192,18 @@
       },
       async atualizarEvento(id, campos) { return SP.atualizarItem(LISTA_EVENTOS, id, campos) },
       async deletarEvento(id) { return SP.deletarItem(LISTA_EVENTOS, id) },
-      async registrarInicioEvento(id, dataInicio, obs) { return SP.atualizarItem(LISTA_EVENTOS, id, { Status: 'emexecucao', DataInicio: dataInicio || null, ObsExecucao: obs || '' }) },
-      async registrarFimEvento(id, dataFim, obs) { return SP.atualizarItem(LISTA_EVENTOS, id, { Status: 'executado', DataFim: dataFim || null, ObsExecucao: obs || '' }) },
+      async registrarInicioEvento(id, dataInicio, obs) {
+        var c = { Status: 'emexecucao' };
+        if (dataInicio) c.DataInicio = dataInicio;
+        if (obs) c.ObsExecucao = obs;
+        return SP.atualizarItem(LISTA_EVENTOS, id, c);
+      },
+      async registrarFimEvento(id, dataFim, obs) {
+        var c = { Status: 'executado' };
+        if (dataFim) c.DataFim = dataFim;
+        if (obs) c.ObsExecucao = obs;
+        return SP.atualizarItem(LISTA_EVENTOS, id, c);
+      },
       async listarAnexos(lista, itemId) { return SP.listarAnexos(lista, itemId) },
       async uploadAnexo(lista, itemId, fileName, buffer) { return SP.uploadAnexo(lista, itemId, fileName, buffer) },
       async deletarAnexo(lista, itemId, fileName) { return SP.deletarAnexo(lista, itemId, fileName) }
@@ -2331,13 +2344,16 @@
             '<button class="primary" onclick="salvarFichaDiario(\''+dataStr+'\')" id="btn-salvar-ficha">Salvar ficha</button>'+
           '</div>'+
           '<div id="diario-msg" style="margin-top:8px"></div>'+
-          (ficha&&ficha.Id
-            ? '<div class="diario-secao" style="margin-top:16px">📷 Fotos do dia</div><div id="diario-fotos-sec">Carregando...</div>'
-            : '<div style="margin-top:14px;background:#f5f7fa;border:1px dashed #ccc;border-radius:6px;padding:10px;font-size:12px;color:#aaa;text-align:center">Salve a ficha primeiro para adicionar fotos.</div>'
-          )+
+          '<div class="diario-secao" style="margin-top:16px">📷 Fotos do dia</div>'+
+          '<div id="diario-fotos-sec"></div>'+
+          '<label class="foto-upload-btn" style="margin-top:8px;display:inline-flex">📷 Adicionar fotos'+
+            '<input type="file" multiple accept="image/*" style="display:none" onchange="adicionarFotosQueue(this)">'+
+          '</label>'+
+          '<div id="diario-fotos-queue" style="margin-top:8px"></div>'+
         '</div>';
 
       fw.scrollIntoView({behavior:'smooth', block:'nearest'});
+      _fotosQueue = []; _fotosQueuePreviews = [];
       if (ficha&&ficha.Id) setTimeout(function(){loadFotosDiario(ficha.Id);},50);
     }
 
@@ -2372,13 +2388,20 @@
       if (dataStr > hojeStr) return;
       var btn = document.getElementById('btn-salvar-ficha');
       var msg = document.getElementById('diario-msg');
+      var cManha = getPeriodoVal('cond','manha');
+      var cTarde = getPeriodoVal('cond','tarde');
+      if (!cManha || !cTarde) {
+        var msg0 = document.getElementById('diario-msg');
+        if (msg0) msg0.innerHTML = '<div class="alert alert-err">Preencha a Condição de Trabalho da manhã e da tarde antes de salvar.</div>';
+        return;
+      }
       btn.disabled = true; btn.textContent = 'Salvando...';
       try {
         var campos = {
           ClimaManha: getPeriodoVal('clima','manha') || null,
           ClimaTarde: getPeriodoVal('clima','tarde') || null,
-          CondicaoManha: getPeriodoVal('cond','manha') || null,
-          CondicaoTarde: getPeriodoVal('cond','tarde') || null,
+          CondicaoManha: cManha,
+          CondicaoTarde: cTarde,
           IntercorrenciaMaterial: document.getElementById('diario-mat').checked,
           DieselConsumo: parseFloat(document.getElementById('diario-diesel-cons').value)||null,
           DieselEstoque: parseFloat(document.getElementById('diario-diesel-esq').value)||null,
@@ -2420,14 +2443,16 @@
         novosEqs.forEach(function(ne,j){ APP.diarioEq.push({Data:dataStr, Equipamento:ne.eq, Descricao:ne.desc, ObraId:APP.obraAtual.Id}); });
         _diarioEqsRemovidos = [];
 
+        // Upload de fotos na fila (selecionadas antes de salvar)
+        var fichaIdFinal = savedId || (idx>=0 ? APP.diario[idx].Id : null);
+        if (_fotosQueue.length && fichaIdFinal) {
+          var queueCopy = _fotosQueue.slice();
+          _fotosQueue = []; _fotosQueuePreviews = [];
+          await uploadFotos(LISTA_DIARIO, fichaIdFinal, queueCopy, function(){});
+        }
         renderDiario();
         renderBadgeNotificacoes();
-        // Se era uma ficha nova, reabre para mostrar seção de fotos
-        if (savedId && idx < 0) {
-          abrirFichaDia(dataStr);
-        } else {
-          fecharFichaDiario();
-        }
+        abrirFichaDia(dataStr);
       } catch(e) {
         msg.innerHTML = '<div class="alert alert-err">Erro ao salvar: '+e.message+'</div>';
       } finally {
@@ -2502,7 +2527,8 @@
           var acoes = '';
           if (g === 'indicativo') acoes = '<button class="primary" style="font-size:12px;padding:6px 14px" onclick="abrirFormInicioEvento('+ev.Id+')">▶ Iniciar execução</button>';
           else if (g === 'emexecucao') acoes = '<button class="primary" style="font-size:12px;padding:6px 14px;background:#3A9C4E;border-color:#2d7a3e" onclick="abrirFormFimEvento('+ev.Id+')">✓ Registrar conclusão</button>';
-          else acoes = '<span style="font-size:12px;color:#888">Concluído em '+(dataFim2?dataFim2.split('-').reverse().join('/'):'—')+'</span>';
+          else acoes = '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><span style="font-size:12px;color:#888">Concluído em '+(dataFim2?dataFim2.split('-').reverse().join('/'):'—')+'</span>'+
+            '<button class="secondary" style="font-size:11px;padding:4px 10px" onclick="abrirFormFimEvento('+ev.Id+')">✏️ Corrigir datas</button></div>';
           html += '<div class="ev-exec-card '+statusClass+'" id="ev-exec-card-'+ev.Id+'">';
           html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">';
           html += '<div><div style="display:flex;align-items:center;gap:7px;margin-bottom:3px"><span style="width:10px;height:10px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span><span style="font-weight:700;font-size:14px">'+(NOMES_EVENTO[ev.TipoEvento]||ev.TipoEvento)+'</span></div>';
@@ -2631,13 +2657,31 @@
       catch(e) { alert('Erro ao remover: '+e.message); }
     }
 
+    async function carregarImagemSP(url) {
+      if (_imgCache[url]) return _imgCache[url];
+      var tk = await getToken();
+      var r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + tk } });
+      if (!r.ok) throw new Error('SP ' + r.status);
+      var blob = await r.blob();
+      var blobUrl = URL.createObjectURL(blob);
+      _imgCache[url] = blobUrl;
+      return blobUrl;
+    }
+
+    function _processarImgsSP(container) {
+      if (!container) return;
+      container.querySelectorAll('img[data-sp-url]').forEach(function(img) {
+        carregarImagemSP(img.dataset.spUrl).then(function(blobUrl){ img.src=blobUrl; }).catch(function(){ img.alt='Erro'; });
+      });
+    }
+
     function renderThumbGrid(anexos, lista, itemId, onDelete) {
       if(!anexos||!anexos.length) return '<div style="color:#bbb;font-size:12px;padding:6px 0">Nenhuma foto.</div>';
       var h='<div class="foto-thumb-grid">';
       anexos.forEach(function(a,idx){
         var url=SHAREPOINT_SITE_URL+a.ServerRelativeUrl;
         h+='<div class="foto-thumb" onclick="abrirLightbox(window._lbFotos_'+itemId+','+idx+')" title="'+a.FileName+'">';
-        h+='<img src="'+url+'" loading="lazy" alt="'+a.FileName+'">';
+        h+='<img data-sp-url="'+url+'" src="" alt="'+a.FileName+'" style="background:#eee">';
         h+='<button class="foto-thumb-del" onclick="event.stopPropagation();deletarFoto(\''+lista+'\','+itemId+',\''+a.FileName+'\',function(){'+onDelete+'})">✕</button>';
         h+='</div>';
       });
@@ -2654,9 +2698,12 @@
         var anexos = await DataAPI.listarAnexos(LISTA_DIARIO, fichaId);
         window['_lbFotos_'+fichaId] = anexos.map(function(a){return {url:SHAREPOINT_SITE_URL+a.ServerRelativeUrl,nome:a.FileName,data:'',tipo:'Diário de Obra'};});
         var onDel = 'loadFotosDiario('+fichaId+')';
-        sec.innerHTML = renderThumbGrid(anexos, LISTA_DIARIO, fichaId, onDel)+
-          '<label class="foto-upload-btn" style="margin-top:8px;display:inline-flex">📷 Adicionar fotos<input type="file" multiple accept="image/*" style="display:none" onchange="uploadFotosDiarioEl(this,'+fichaId+')"></label>'+
-          '<span id="diario-fotos-msg" style="font-size:12px;margin-left:8px"></span>';
+        sec.innerHTML = renderThumbGrid(anexos, LISTA_DIARIO, fichaId, onDel);
+        _processarImgsSP(sec);
+        window['_lbFotos_'+fichaId] = anexos.map(function(a){
+          var url=SHAREPOINT_SITE_URL+a.ServerRelativeUrl;
+          return {url:_imgCache[url]||url, nome:a.FileName, data:'', tipo:'Diário de Obra'};
+        });
       } catch(e) {
         sec.innerHTML = '<div style="color:#E65100;font-size:12px">Erro ao carregar fotos: '+e.message+'</div>';
       }
@@ -2670,6 +2717,34 @@
         loadFotosDiario(fichaId);
       });
       input.value='';
+    }
+
+    function adicionarFotosQueue(input) {
+      Array.from(input.files).forEach(function(f) {
+        _fotosQueue.push(f);
+        _fotosQueuePreviews.push(URL.createObjectURL(f));
+      });
+      renderFotosQueue();
+      input.value='';
+    }
+
+    function removerFotoQueue(idx) {
+      URL.revokeObjectURL(_fotosQueuePreviews[idx]);
+      _fotosQueue.splice(idx, 1);
+      _fotosQueuePreviews.splice(idx, 1);
+      renderFotosQueue();
+    }
+
+    function renderFotosQueue() {
+      var el = document.getElementById('diario-fotos-queue');
+      if (!el) return;
+      if (!_fotosQueue.length) { el.innerHTML=''; return; }
+      var h='<div style="font-size:11px;color:#888;margin-bottom:6px">'+_fotosQueue.length+' foto(s) na fila — serão enviadas ao salvar:</div><div class="foto-thumb-grid">';
+      _fotosQueuePreviews.forEach(function(blobUrl, i) {
+        h+='<div class="foto-thumb"><img src="'+blobUrl+'" alt="foto '+i+'"><button class="foto-thumb-del" onclick="removerFotoQueue('+i+')">✕</button></div>';
+      });
+      h+='</div>';
+      el.innerHTML=h;
     }
 
     /* =================================================================
@@ -2746,12 +2821,17 @@
           html+='<div class="galeria-grupo"><div class="galeria-grupo-header">'+g.titulo+'<span class="galeria-grupo-sub">'+g.subtitulo+'</span></div><div class="galeria-grid">';
           g.anexos.forEach(function(a,i){
             var url=SHAREPOINT_SITE_URL+a.ServerRelativeUrl;
-            html+='<div class="galeria-item" onclick="abrirLightbox(_galeriaFotos,'+(offset+i)+')"><img src="'+url+'" loading="lazy" alt="'+a.FileName+'"></div>';
+            html+='<div class="galeria-item" onclick="abrirLightbox(_galeriaFotos,'+(offset+i)+')"><img data-sp-url="'+url+'" src="" alt="'+a.FileName+'" style="background:#eee"></div>';
           });
           html+='</div></div>';
         });
         window._galeriaFotos=allFotos;
         galeria.innerHTML=html;
+        // Carrega imagens autenticadas e atualiza lightbox com blob URLs
+        _processarImgsSP(galeria);
+        Promise.all(allFotos.map(function(f){
+          return carregarImagemSP(f.url).then(function(b){f.url=b;}).catch(function(){});
+        }));
       } catch(e) {
         galeria.innerHTML='<div style="color:#E65100;text-align:center;padding:40px">Erro: '+e.message+'</div>';
       }
