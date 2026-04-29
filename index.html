@@ -2354,16 +2354,16 @@
           '<div class="diario-secao">Observações Gerais</div>'+
           '<textarea id="diario-obs" rows="2" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Outras observações do dia...">'+obs+'</textarea>'+
 
-          '<div style="margin-top:14px;display:flex;gap:8px">'+
-            '<button class="primary" onclick="salvarFichaDiario(\''+dataStr+'\')" id="btn-salvar-ficha">Salvar ficha</button>'+
-          '</div>'+
-          '<div id="diario-msg" style="margin-top:8px"></div>'+
           '<div class="diario-secao" style="margin-top:16px">📷 Fotos do dia</div>'+
           '<div id="diario-fotos-sec"></div>'+
           '<label class="foto-upload-btn" style="margin-top:8px;display:inline-flex">📷 Adicionar fotos'+
             '<input type="file" multiple accept="image/*" style="display:none" onchange="adicionarFotosQueue(this)">'+
           '</label>'+
           '<div id="diario-fotos-queue" style="margin-top:8px"></div>'+
+          '<div style="margin-top:16px;display:flex;gap:8px;align-items:center">'+
+            '<button class="primary" onclick="salvarFichaDiario(\''+dataStr+'\')" id="btn-salvar-ficha">Salvar ficha</button>'+
+          '</div>'+
+          '<div id="diario-msg" style="margin-top:8px"></div>'+
         '</div>';
 
       fw.scrollIntoView({behavior:'smooth', block:'nearest'});
@@ -2539,10 +2539,24 @@
           var dataFim2 = (ev.DataFim||'').substring(0,10);
           var statusClass = 'status-'+g+'-card';
           var acoes = '';
-          if (g === 'indicativo') acoes = '<button class="primary" style="font-size:12px;padding:6px 14px" onclick="abrirFormInicioEvento('+ev.Id+')">▶ Iniciar execução</button>';
-          else if (g === 'emexecucao') acoes = '<button class="primary" style="font-size:12px;padding:6px 14px;background:#3A9C4E;border-color:#2d7a3e" onclick="abrirFormFimEvento('+ev.Id+')">✓ Registrar conclusão</button>';
-          else acoes = '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><span style="font-size:12px;color:#888">Concluído em '+(dataFim2?dataFim2.split('-').reverse().join('/'):'—')+'</span>'+
-            '<button class="secondary" style="font-size:11px;padding:4px 10px" onclick="abrirFormFimEvento('+ev.Id+')">✏️ Corrigir datas</button></div>';
+          if (g === 'indicativo') {
+            acoes = '<button class="primary" style="font-size:12px;padding:6px 14px" onclick="abrirFormInicioEvento('+ev.Id+')">▶ Iniciar execução</button>';
+          } else if (g === 'emexecucao') {
+            acoes = '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'+
+              '<button class="primary" style="font-size:12px;padding:6px 14px;background:#3A9C4E;border-color:#2d7a3e" onclick="abrirFormFimEvento('+ev.Id+')">✓ Registrar conclusão</button>'+
+              '<div style="display:flex;gap:6px">'+
+              '<button class="secondary" style="font-size:11px;padding:4px 10px" onclick="toggleFotosEvento('+ev.Id+')">📷 Fotos</button>'+
+              '<button class="secondary" style="font-size:11px;padding:4px 10px;color:#888" onclick="reverterStatusEvento('+ev.Id+',\'indicativo\')">← Indicativo</button>'+
+              '</div></div>';
+          } else {
+            acoes = '<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">'+
+              '<span style="font-size:12px;color:#888">Concluído em '+(dataFim2?dataFim2.split('-').reverse().join('/'):'—')+'</span>'+
+              '<div style="display:flex;gap:6px">'+
+              '<button class="secondary" style="font-size:11px;padding:4px 10px" onclick="toggleFotosEvento('+ev.Id+')">📷 Fotos</button>'+
+              '<button class="secondary" style="font-size:11px;padding:4px 10px" onclick="abrirFormFimEvento('+ev.Id+')">✏️ Datas</button>'+
+              '<button class="secondary" style="font-size:11px;padding:4px 10px;color:#888" onclick="reverterStatusEvento('+ev.Id+',\'emexecucao\')">← Em execução</button>'+
+              '</div></div>';
+          }
           html += '<div class="ev-exec-card '+statusClass+'" id="ev-exec-card-'+ev.Id+'">';
           html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">';
           html += '<div><div style="display:flex;align-items:center;gap:7px;margin-bottom:3px"><span style="width:10px;height:10px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span><span style="font-weight:700;font-size:14px">'+(NOMES_EVENTO[ev.TipoEvento]||ev.TipoEvento)+'</span></div>';
@@ -2596,6 +2610,60 @@
       if(f) f.style.display='block'; if(fi) fi.style.display='none';
     }
     function fecharFormFimEvento(id) { var f=document.getElementById('ev-form-fim-'+id); if(f) f.style.display='none'; }
+
+    function toggleFotosEvento(id) {
+      var sec = document.getElementById('ev-fotos-sec-'+id);
+      if (!sec) return;
+      if (sec.style.display === 'none' || !sec.style.display) {
+        sec.style.display = 'block';
+        if (!sec.dataset.loaded) { sec.dataset.loaded = '1'; loadFotosEvento(id); }
+      } else {
+        sec.style.display = 'none';
+      }
+    }
+
+    async function loadFotosEvento(id) {
+      var sec = document.getElementById('ev-fotos-sec-'+id);
+      if (!sec) return;
+      sec.innerHTML = '<div style="font-size:12px;color:#aaa;padding:6px 0">Carregando fotos...</div>';
+      try {
+        var anexos = await DataAPI.listarAnexos(LISTA_EVENTOS, id);
+        var onDel = 'loadFotosEvento('+id+')';
+        var html = renderThumbGrid(anexos, LISTA_EVENTOS, id, onDel);
+        html += '<label class="foto-upload-btn" style="margin-top:8px;display:inline-flex;font-size:12px">📷 Adicionar fotos'+
+          '<input type="file" multiple accept="image/*" style="display:none" onchange="uploadFotosEventoEl(this,'+id+')"></label>';
+        sec.innerHTML = html;
+      } catch(e) {
+        sec.innerHTML = '<div style="color:#E65100;font-size:12px">Erro: '+e.message+'</div>';
+      }
+    }
+
+    async function uploadFotosEventoEl(input, id) {
+      var sec = document.getElementById('ev-fotos-sec-'+id);
+      if (sec) { var msg = document.createElement('div'); msg.style='font-size:12px;color:#888;margin-top:4px'; msg.textContent='Enviando...'; sec.appendChild(msg); }
+      await uploadFotos(LISTA_EVENTOS, id, input.files, function(erros) {
+        if (sec) { var m = sec.querySelector('[data-upload-msg]'); if(m) m.remove(); }
+        if (erros.length) alert('Erros: '+erros.join('\n'));
+        if (sec) sec.dataset.loaded = '';
+        loadFotosEvento(id);
+      });
+      input.value = '';
+    }
+
+    async function reverterStatusEvento(id, novoStatus) {
+      var ev = APP.eventos.find(function(e){return e.Id===id;});
+      if (!ev) return;
+      var statusAnt = ev.Status;
+      ev.Status = novoStatus;
+      renderGraficoFaixas(); renderLegend();
+      try {
+        await SP.atualizarItem(LISTA_EVENTOS, id, { Status: novoStatus });
+        renderOutrosServicosExecucao(); renderEventos();
+      } catch(e) {
+        ev.Status = statusAnt; renderGraficoFaixas(); renderLegend();
+        alert('Erro ao reverter: '+e.message);
+      }
+    }
 
     async function salvarInicioEvento(id) {
       var dataEl=document.getElementById('ev-ini-data-'+id), obsEl=document.getElementById('ev-ini-obs-'+id);
@@ -2691,11 +2759,12 @@
 
     function renderThumbGrid(anexos, lista, itemId, onDelete) {
       if(!anexos||!anexos.length) return '<div style="color:#bbb;font-size:12px;padding:6px 0">Nenhuma foto.</div>';
+      window['_lbFotos_'+itemId] = anexos.map(function(a){return {url:'https://'+SHAREPOINT_HOST+a.ServerRelativeUrl,nome:a.FileName,data:'',tipo:lista};});
       var h='<div class="foto-thumb-grid">';
       anexos.forEach(function(a,idx){
         var url='https://'+SHAREPOINT_HOST+a.ServerRelativeUrl;
-        h+='<div class="foto-thumb" onclick="abrirLightbox(window._lbFotos_'+itemId+','+idx+')" title="'+a.FileName+'">';
-        h+='<img data-sp-url="'+url+'" src="" alt="'+a.FileName+'" style="background:#eee">';
+        h+='<div class="foto-thumb" onclick="abrirLightbox(window[\'_lbFotos_'+itemId+'\'],'+idx+')" title="'+a.FileName+'">';
+        h+='<img src="'+url+'" alt="'+a.FileName+'" style="background:#eee;object-fit:cover">';
         h+='<button class="foto-thumb-del" onclick="event.stopPropagation();deletarFoto(\''+lista+'\','+itemId+',\''+a.FileName+'\',function(){'+onDelete+'})">✕</button>';
         h+='</div>';
       });
@@ -2710,14 +2779,8 @@
       sec.innerHTML = '<div style="color:#aaa;font-size:12px">Carregando fotos...</div>';
       try {
         var anexos = await DataAPI.listarAnexos(LISTA_DIARIO, fichaId);
-        window['_lbFotos_'+fichaId] = anexos.map(function(a){return {url:'https://'+SHAREPOINT_HOST+a.ServerRelativeUrl,nome:a.FileName,data:'',tipo:'Diário de Obra'};});
         var onDel = 'loadFotosDiario('+fichaId+')';
         sec.innerHTML = renderThumbGrid(anexos, LISTA_DIARIO, fichaId, onDel);
-        _processarImgsSP(sec);
-        window['_lbFotos_'+fichaId] = anexos.map(function(a){
-          var url='https://'+SHAREPOINT_HOST+a.ServerRelativeUrl;
-          return {url:_imgCache[url]||url, nome:a.FileName, data:'', tipo:'Diário de Obra'};
-        });
       } catch(e) {
         sec.innerHTML = '<div style="color:#E65100;font-size:12px">Erro ao carregar fotos: '+e.message+'</div>';
       }
@@ -2835,17 +2898,12 @@
           html+='<div class="galeria-grupo"><div class="galeria-grupo-header">'+g.titulo+'<span class="galeria-grupo-sub">'+g.subtitulo+'</span></div><div class="galeria-grid">';
           g.anexos.forEach(function(a,i){
             var url='https://'+SHAREPOINT_HOST+a.ServerRelativeUrl;
-            html+='<div class="galeria-item" onclick="abrirLightbox(_galeriaFotos,'+(offset+i)+')"><img data-sp-url="'+url+'" src="" alt="'+a.FileName+'" style="background:#eee"></div>';
+            html+='<div class="galeria-item" onclick="abrirLightbox(_galeriaFotos,'+(offset+i)+')"><img src="'+url+'" alt="'+a.FileName+'" style="background:#eee;object-fit:cover"></div>';
           });
           html+='</div></div>';
         });
         window._galeriaFotos=allFotos;
         galeria.innerHTML=html;
-        // Carrega imagens autenticadas e atualiza lightbox com blob URLs
-        _processarImgsSP(galeria);
-        Promise.all(allFotos.map(function(f){
-          return carregarImagemSP(f.url).then(function(b){f.url=b;}).catch(function(){});
-        }));
       } catch(e) {
         galeria.innerHTML='<div style="color:#E65100;text-align:center;padding:40px">Erro: '+e.message+'</div>';
       }
