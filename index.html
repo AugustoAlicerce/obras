@@ -476,9 +476,9 @@
     }
 
     /* Diário de Obra */
-    .diario-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
-    .diario-cal-header{font-size:11px;color:#555;text-align:center;font-weight:700;padding:3px 0}
-    .diario-cal-cell{text-align:center;border-radius:7px;padding:4px 4px 5px;cursor:pointer;transition:filter .12s,border-color .12s;font-family:'Barlow Condensed',sans-serif;border:2px solid transparent;min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;gap:4px}
+    .diario-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px}
+    .diario-cal-header{font-size:10px;color:#555;text-align:center;font-weight:700;padding:2px 0}
+    .diario-cal-cell{text-align:center;border-radius:6px;padding:3px 3px 4px;cursor:pointer;transition:filter .12s,border-color .12s;font-family:'Barlow Condensed',sans-serif;border:2px solid transparent;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;gap:3px}
     .diario-cal-cell:hover{filter:brightness(.88);border-color:rgba(0,0,0,.25)}
     .diario-cal-cell.selected{box-shadow:0 0 0 2px #0078d4,0 0 0 4px #fff,0 0 0 6px #0078d4}
     .diario-cal-cell.vazio{background:#f0f2f5;color:#bbb}
@@ -489,9 +489,9 @@
     .diario-cal-cell.impraticavel{background:#E65100;color:#fff}
     .diario-cal-cell.fds-reg{background:#78909C;color:#fff}
     .diario-cal-cell.futuro{opacity:.25;cursor:not-allowed;pointer-events:none}
-    .diario-cel-num{position:absolute;top:4px;right:6px;font-size:11px;font-weight:700;line-height:1;opacity:.9}
-    .diario-cel-sym{font-size:19px;line-height:1;display:flex;align-items:center;gap:2px}
-    .diario-cel-sym.sem-dados{opacity:0;font-size:19px}
+    .diario-cel-num{position:absolute;top:3px;right:5px;font-size:10px;font-weight:700;line-height:1;opacity:.9}
+    .diario-cel-sym{font-size:15px;line-height:1;display:flex;align-items:center;gap:2px}
+    .diario-cel-sym.sem-dados{opacity:0;font-size:15px}
     .diario-cel-sep{font-size:13px;opacity:.5;margin:0 1px}
     .diario-cel-bottom{display:flex;gap:5px;align-items:center;justify-content:center}
     .diario-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);display:inline-block;flex-shrink:0}
@@ -515,6 +515,24 @@
     .ev-exec-card.status-emexecucao-card{border-left:4px solid #D4A017}
     .ev-exec-card.status-executado-card{border-left:4px solid #3A9C4E}
     .ev-exec-card.status-indicativo-card{border-left:4px solid #ccc}
+    /* Modal Diário */
+    #diario-modal{display:none;position:fixed;inset:0;z-index:8000;background:rgba(0,0,0,.52);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto}
+    #diario-modal.open{display:flex}
+    #diario-modal-inner{background:#fff;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.32);width:100%;max-width:620px;padding:24px;margin:auto;position:relative;animation:modalIn .2s ease}
+    @keyframes modalIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+    /* Painel de Obras */
+    #painel-obras{display:none;min-height:100vh;background:#f0f2f5}
+    .painel-obras-header{background:#0078d4;color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+    .painel-obras-header h1{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;margin:0;letter-spacing:.3px}
+    .painel-obras-body{padding:28px}
+    .painel-obras-title{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:#222;margin-bottom:20px}
+    .obras-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+    .obra-card{background:#fff;border-radius:12px;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:transform .18s,box-shadow .18s;border:1px solid #e8e8e8}
+    .obra-card:hover{transform:translateY(-4px);box-shadow:0 10px 28px rgba(0,0,0,.16)}
+    .obra-card-img{height:110px;display:flex;align-items:center;justify-content:center;font-size:40px;position:relative}
+    .obra-card-body{padding:12px 14px}
+    .obra-card-title{font-weight:700;font-size:14px;color:#1a1a1a;line-height:1.3;margin-bottom:6px}
+    .obra-card-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e3f2fd;color:#0078d4}
     /* Fotos */
     .foto-thumb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;margin-top:8px}
     .foto-thumb{position:relative;border-radius:6px;overflow:hidden;aspect-ratio:1;cursor:pointer;background:#f0f0f0}
@@ -785,10 +803,30 @@
     <div id="login-err" style="margin-top:16px"></div>
   </div>
 
+  <!-- PAINEL DE OBRAS -->
+  <div id="painel-obras">
+    <div class="painel-obras-header">
+      <h1>🏗 Acompanhamento de Obras — Pavimentação</h1>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span id="painel-user-info" style="font-size:13px;opacity:.85"></span>
+        <button onclick="logoutApp()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer">Sair</button>
+      </div>
+    </div>
+    <div class="painel-obras-body">
+      <div class="painel-obras-title">Selecione a obra</div>
+      <div id="painel-obras-grid" class="obras-grid">
+        <div style="color:#aaa;grid-column:1/-1;text-align:center;padding:40px">Carregando obras...</div>
+      </div>
+    </div>
+  </div>
+
   <div id="app-main" style="display:none">
     <div id="mode-banner" class="mode-banner ok" style="display:none"></div>
     <div class="header">
-      <h1>Acompanhamento de Obras — Pavimentação</h1>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button onclick="voltarPainelObras()" title="Voltar às obras" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap">← Obras</button>
+        <h1 style="margin:0">Acompanhamento de Obras — Pavimentação</h1>
+      </div>
       <div class="user" style="gap:12px">
         <button id="notif-badge" onclick="abrirPainelNotificacoes()" style="display:none;background:#E65100;color:#fff;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;gap:5px;align-items:center"></button>
         <span id="user-info"></span>
@@ -2106,7 +2144,7 @@
       mesDiario += delta;
       if (mesDiario > 11) { mesDiario = 0; anoDiario++; }
       if (mesDiario < 0) { mesDiario = 11; anoDiario--; }
-      document.getElementById('diario-ficha-wrap').innerHTML = '';
+      fecharFichaDiario();
       renderDiario();
     }
 
@@ -2301,7 +2339,10 @@
 
       var eqsHtml = eqsDia.map(function(e){ return eqRowHtml(e.Id, e.Equipamento||'', e.Descricao||''); }).join('');
 
-      fw.innerHTML =
+      var modal = document.getElementById('diario-modal');
+      var modalContent = document.getElementById('diario-modal-content');
+      modal.classList.add('open');
+      modalContent.innerHTML =
         '<div class="diario-ficha" id="diario-ficha">'+
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
             '<span style="font-size:15px;font-weight:700;color:#0078d4;font-family:\'Barlow Condensed\',sans-serif">📝 '+nomeDia+', '+dtLabel+'</span>'+
@@ -2366,9 +2407,13 @@
           '<div id="diario-msg" style="margin-top:8px"></div>'+
         '</div>';
 
-      fw.scrollIntoView({behavior:'smooth', block:'nearest'});
+      document.getElementById('diario-modal-inner').scrollTop = 0;
       _fotosQueue = []; _fotosQueuePreviews = [];
       if (ficha&&ficha.Id) setTimeout(function(){loadFotosDiario(ficha.Id);},50);
+    }
+
+    function fecharModalFora(e) {
+      if (e.target === document.getElementById('diario-modal')) fecharFichaDiario();
     }
 
     function adicionarEqRow() {
@@ -2390,8 +2435,10 @@
     }
 
     function fecharFichaDiario() {
+      var modal = document.getElementById('diario-modal');
+      if (modal) modal.classList.remove('open');
       var w = document.getElementById('diario-ficha-wrap');
-      w.innerHTML = ''; w.dataset.dataAberta = '';
+      if (w) { w.innerHTML = ''; w.dataset.dataAberta = ''; }
       _diarioEqsRemovidos = [];
       document.querySelectorAll('.diario-cal-cell').forEach(function(el){el.classList.remove('selected');});
     }
@@ -2466,7 +2513,7 @@
         }
         renderDiario();
         renderBadgeNotificacoes();
-        abrirFichaDia(dataStr);
+        fecharFichaDiario();
       } catch(e) {
         msg.innerHTML = '<div class="alert alert-err">Erro ao salvar: '+e.message+'</div>';
       } finally {
@@ -2721,12 +2768,35 @@
        ================================================================= */
     var _lightboxFotos = [], _lightboxIdx = 0;
 
+    function comprimirImagem(file) {
+      return new Promise(function(resolve) {
+        var MAX = 1200, QUAL = 0.82;
+        var isImg = file.type && file.type.startsWith('image/');
+        if (!isImg) { file.arrayBuffer().then(resolve); return; }
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function() {
+          URL.revokeObjectURL(url);
+          var w = img.width, h = img.height;
+          var ratio = Math.min(1, MAX/w, MAX/h);
+          var nw = Math.round(w*ratio), nh = Math.round(h*ratio);
+          var canvas = document.createElement('canvas');
+          canvas.width = nw; canvas.height = nh;
+          canvas.getContext('2d').drawImage(img, 0, 0, nw, nh);
+          canvas.toBlob(function(blob) { blob.arrayBuffer().then(resolve); }, 'image/jpeg', QUAL);
+        };
+        img.onerror = function() { URL.revokeObjectURL(url); file.arrayBuffer().then(resolve); };
+        img.src = url;
+      });
+    }
+
     async function uploadFotos(lista, itemId, files, onDone) {
       var erros = [];
       for (var i=0; i<files.length; i++) {
         var file = files[i];
-        var buf = await file.arrayBuffer();
-        var nome = Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+        var buf = await comprimirImagem(file);
+        var ext = (file.type && file.type.startsWith('image/')) ? '.jpg' : file.name.substring(file.name.lastIndexOf('.'));
+        var nome = Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_').replace(/\.[^.]+$/, ext);
         try { await DataAPI.uploadAnexo(lista, itemId, nome, buf); }
         catch(e) { erros.push(file.name+': '+e.message); }
       }
@@ -3010,8 +3080,12 @@
       dbg('Autenticado. Carregando dados...');
       APP.usuario = { nome: currentAccount.name, email: currentAccount.username };
       document.getElementById('user-info').textContent = currentAccount.name;
+      document.getElementById('painel-user-info').textContent = currentAccount.name;
       document.getElementById('login-screen').style.display = 'none';
-      document.getElementById('app-main').style.display = 'block';
+      var isAdmin = ADMIN_EMAILS.some(function (e) { return e.toLowerCase() === (APP.usuario.email || '').toLowerCase() });
+      if (isAdmin) document.getElementById('btn-debug').style.display = '';
+      bindEvents();
+      document.getElementById('r-data').value = new Date().toISOString().slice(0, 10);
       try {
         var todasObras = await DataAPI.listarObras();
         APP.obras = todasObras.filter(function (o) {
@@ -3019,17 +3093,57 @@
           var emails = o.Responsaveis.toLowerCase().split(';').map(function (e) { return e.trim() });
           return emails.indexOf((APP.usuario.email || '').toLowerCase()) >= 0;
         });
-        var sel = document.getElementById('obra-sel');
-        if (APP.obras.length === 0) { sel.innerHTML = '<option>Nenhuma obra cadastrada</option>'; dbg('Lista Obras vazia.', 'err') }
-        else { sel.innerHTML = APP.obras.map(function (o) { return '<option value="' + o.Id + '">' + o.Title + '</option>' }).join(''); APP.obraAtual = APP.obras[0]; sel.value = APP.obraAtual.Id }
-        document.getElementById('r-data').value = new Date().toISOString().slice(0, 10);
-        // Mostrar botão Debug apenas para administradores
-        var isAdmin = ADMIN_EMAILS.some(function (e) { return e.toLowerCase() === (APP.usuario.email || '').toLowerCase() });
-        if (isAdmin) document.getElementById('btn-debug').style.display = '';
-        bindEvents();
+        mostrarPainelObras();
+      } catch (e) { dbg('Erro: ' + e.message, 'err'); alert('Erro ao carregar obras: '+e.message); }
+    }
+
+    function mostrarPainelObras() {
+      document.getElementById('app-main').style.display = 'none';
+      document.getElementById('painel-obras').style.display = 'block';
+      var grid = document.getElementById('painel-obras-grid');
+      if (!APP.obras || APP.obras.length === 0) {
+        grid.innerHTML = '<div style="color:#999;grid-column:1/-1;text-align:center;padding:60px;font-size:15px">Nenhuma obra disponível para este usuário.</div>';
+        return;
+      }
+      var paleta = ['#0078d4','#2E7D32','#6D4C41','#1565C0','#6A1B9A','#00695C','#B71C1C','#E65100','#4527A0','#00838F'];
+      var html = '';
+      APP.obras.forEach(function(o, i) {
+        var cor = paleta[i % paleta.length];
+        var status = o.Status || '';
+        var badgeHtml = status ? '<span class="obra-card-badge">'+status+'</span>' : '';
+        html += '<div class="obra-card" onclick="selecionarObra('+o.Id+')">';
+        html += '<div class="obra-card-img" style="background:linear-gradient(135deg,'+cor+'e0 0%,'+cor+'70 100%)">';
+        html += '<span style="font-size:44px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))">🏗</span></div>';
+        html += '<div class="obra-card-body"><div class="obra-card-title">'+o.Title+'</div>'+badgeHtml+'</div>';
+        html += '</div>';
+      });
+      grid.innerHTML = html;
+    }
+
+    async function selecionarObra(id) {
+      APP.obraAtual = APP.obras.find(function(o){ return o.Id === id; });
+      var sel = document.getElementById('obra-sel');
+      sel.innerHTML = APP.obras.map(function(o){ return '<option value="'+o.Id+'">'+o.Title+'</option>'; }).join('');
+      sel.value = id;
+      document.getElementById('painel-obras').style.display = 'none';
+      document.getElementById('app-main').style.display = 'block';
+      try {
         await carregarDadosObra();
-        var banner = document.getElementById('mode-banner'); banner.textContent = 'Conectado ao SharePoint'; banner.style.display = 'block'; setTimeout(function () { banner.style.display = 'none' }, 3000);
-      } catch (e) { dbg('Erro: ' + e.message, 'err'); document.querySelector('.container').innerHTML = '<div class="alert alert-err" style="margin-top:20px"><strong>Erro ao iniciar</strong><br>' + e.message + '</div>' }
+        verificarPermissaoUI();
+        var banner = document.getElementById('mode-banner');
+        banner.textContent = APP.obraAtual.Title; banner.style.display = 'block';
+        setTimeout(function(){ banner.style.display = 'none'; }, 2500);
+      } catch(e) { alert('Erro ao carregar obra: '+e.message); }
+    }
+
+    function voltarPainelObras() {
+      fecharFichaDiario();
+      document.getElementById('app-main').style.display = 'none';
+      mostrarPainelObras();
+    }
+
+    function logoutApp() {
+      if (msalApp) msalApp.logoutRedirect();
     }
 
     async function boot() {
@@ -3045,6 +3159,14 @@
     boot();
   </script>
   <div id="diario-tooltip"></div>
+
+  <!-- MODAL FICHA DIÁRIO -->
+  <div id="diario-modal" onclick="fecharModalFora(event)">
+    <div id="diario-modal-inner">
+      <div id="diario-modal-content"></div>
+    </div>
+  </div>
+
   <div id="lightbox" onclick="fecharLightboxFora(event)">
     <button id="lightbox-close" onclick="fecharLightbox()">✕</button>
     <a id="lightbox-dl" target="_blank" title="Download">⬇ Download</a>
