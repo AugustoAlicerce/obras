@@ -829,12 +829,12 @@
     <div id="mode-banner" class="mode-banner ok" style="display:none"></div>
     <div class="header">
       <div style="display:flex;align-items:center;gap:12px;min-width:0">
-        <button onclick="voltarPainelObras()" title="Voltar às obras" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0">← Obras</button>
+        <button onclick="voltarPainelObras()" title="Voltar às obras" style="background:#f0f7ff;border:1px solid #bae0ff;color:#0078d4;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">← Obras</button>
         <div style="min-width:0">
-          <div style="font-size:10px;opacity:.7;font-weight:400;letter-spacing:.4px;text-transform:uppercase">Obra ativa</div>
-          <div id="header-obra-nome" style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px">—</div>
+          <div style="font-size:10px;color:#888;font-weight:400;letter-spacing:.4px;text-transform:uppercase">Obra ativa</div>
+          <div id="header-obra-nome" style="font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;color:#0078d4;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:380px">—</div>
         </div>
-        <button onclick="document.getElementById('btn-reload').click()" title="Atualizar dados" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:5px 9px;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1">↻</button>
+        <button onclick="document.getElementById('btn-reload').click()" title="Atualizar dados" style="background:#f0f7ff;border:1px solid #bae0ff;color:#0078d4;border-radius:6px;padding:5px 9px;font-size:16px;cursor:pointer;flex-shrink:0;line-height:1">↻</button>
       </div>
       <div class="user" style="gap:12px">
         <button id="notif-badge" onclick="abrirPainelNotificacoes()" style="display:none;background:#E65100;color:#fff;border:none;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;gap:5px;align-items:center"></button>
@@ -861,6 +861,7 @@
         <button class="tab-btn" data-tab="historico">Histórico</button>
         <button class="tab-btn" data-tab="fotos">Fotos</button>
         <button class="tab-btn" data-tab="projeto">Cadastro do projeto</button>
+        <button class="tab-btn" data-tab="config" id="tab-btn-config" style="display:none">⚙ Configurações</button>
       </div>
 
       <!-- PERFIL UNIFILAR -->
@@ -998,6 +999,9 @@
         </div>
       </div>
 
+      <!-- CONFIGURAÇÕES (admin only) -->
+      <div id="tab-config" style="display:none"></div>
+
       <!-- PROJETO -->
       <div id="tab-projeto" style="display:none">
         <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
@@ -1098,10 +1102,21 @@
     /* =================================================================
        CONFIGURAÇÃO
        ================================================================= */
-    // Emails com acesso ao painel de Debug — adicione os emails dos administradores
-    var ADMIN_EMAILS = ['administrador@construtoraalicerceceara.onmicrosoft.com'];
-    // Emails da diretoria — apenas esses usuários podem marcar solicitações de equipamento como lidas
-    var DIRETORIA_EMAILS = ['administrador@construtoraalicerceceara.onmicrosoft.com'];
+    var LISTA_CONFIG = 'Configuracoes';
+    // Valores padrão — substituídos ao carregar da lista "Configuracoes" no SharePoint
+    var CONFIG = {
+      adminEmails: ['administrador@construtoraalicerceceara.onmicrosoft.com'],
+      direitoriaEmails: ['administrador@construtoraalicerceceara.onmicrosoft.com']
+    };
+    function isAdmin() {
+      return CONFIG.adminEmails.some(function(e){ return e.toLowerCase()===(APP.usuario&&APP.usuario.email||'').toLowerCase(); });
+    }
+    function isDireitoriaUser() {
+      return CONFIG.direitoriaEmails.some(function(e){ return e.toLowerCase()===(APP.usuario&&APP.usuario.email||'').toLowerCase(); });
+    }
+    // Compat: mantém as vars para não quebrar referências externas
+    var ADMIN_EMAILS = CONFIG.adminEmails;
+    var DIRETORIA_EMAILS = CONFIG.direitoriaEmails;
 
     var MSAL_CLIENT_ID = '13e6d132-d14c-4e07-9f7c-0aab1a7ef672';
     var MSAL_TENANT_ID = '808cc4d8-fcde-4703-abb7-b0e9aa5aeb2b';
@@ -1962,7 +1977,7 @@
        EVENTS
        ================================================================= */
     function bindEvents() {
-      document.querySelectorAll('.tab-btn[data-tab]').forEach(function (b) { b.onclick = function () { document.querySelectorAll('.tab-btn[data-tab]').forEach(function (x) { x.classList.remove('active') }); b.classList.add('active');['dashboard', 'registrar', 'historico', 'fotos', 'projeto'].forEach(function (t) { var el = document.getElementById('tab-' + t); if(el) el.style.display = t === b.dataset.tab ? 'block' : 'none' }); if (b.dataset.tab === 'historico') renderHistorico(); if (b.dataset.tab === 'projeto') { renderProjeto(); renderServicosObra(); renderEventos(); popularSelectEventos() } if (b.dataset.tab === 'registrar') { popularSelects(); verificarPermissaoUI(); renderOutrosServicosExecucao(); } if (b.dataset.tab === 'fotos') { popularFiltrosGaleria(); } } });
+      document.querySelectorAll('.tab-btn[data-tab]').forEach(function (b) { b.onclick = function () { document.querySelectorAll('.tab-btn[data-tab]').forEach(function (x) { x.classList.remove('active') }); b.classList.add('active');['dashboard', 'registrar', 'historico', 'fotos', 'projeto', 'config'].forEach(function (t) { var el = document.getElementById('tab-' + t); if(el) el.style.display = t === b.dataset.tab ? 'block' : 'none' }); if (b.dataset.tab === 'historico') renderHistorico(); if (b.dataset.tab === 'projeto') { renderProjeto(); renderServicosObra(); renderEventos(); popularSelectEventos() } if (b.dataset.tab === 'registrar') { popularSelects(); verificarPermissaoUI(); renderOutrosServicosExecucao(); } if (b.dataset.tab === 'fotos') { popularFiltrosGaleria(); } if (b.dataset.tab === 'config') renderConfiguracoes(); } });
 
       document.getElementById('obra-sel').onchange = function (ev) { var id = parseInt(ev.target.value); APP.obraAtual = APP.obras.find(function (o) { return o.Id === id }); carregarDadosObra().then(function () { verificarPermissaoUI() }) };
       document.getElementById('btn-reload').onclick = function () { carregarDadosObra().then(function () { popularSelects(); verificarPermissaoUI() }) };
@@ -3026,7 +3041,7 @@
       var painel = document.getElementById('notif-painel');
       if (!painel) return;
       var lista = document.getElementById('notif-lista');
-      var isDiretoria = DIRETORIA_EMAILS.some(function(e){ return e.toLowerCase()===(APP.usuario&&APP.usuario.email||'').toLowerCase(); });
+      var isDiretoria = isDireitoriaUser();
       var pendentes = (APP.diario||[]).filter(function(f){
         return f.SolicitacaoEquipamento && f.SolicitacaoEquipamento.trim()!=='' && !f.SolicitacaoLida;
       }).sort(function(a,b){return (b.Data||'').localeCompare(a.Data||'');});
@@ -3066,6 +3081,123 @@
     }
 
     /* =================================================================
+       CONFIGURAÇÕES — ADMIN
+       ================================================================= */
+    async function carregarConfig() {
+      try {
+        var items = await SP.listarItens(LISTA_CONFIG);
+        items.forEach(function(item) {
+          var vals = (item.Valor||'').split(';').map(function(s){return s.trim();}).filter(Boolean);
+          if (item.Title === 'ADMIN_EMAILS' && vals.length) CONFIG.adminEmails = vals;
+          if (item.Title === 'DIRETORIA_EMAILS' && vals.length) CONFIG.direitoriaEmails = vals;
+        });
+      } catch(e) { /* SP list may not exist — use defaults */ }
+    }
+
+    async function salvarConfigItem(chave, valor) {
+      var items = await SP.listarItens(LISTA_CONFIG, "Title eq '"+chave+"'");
+      if (items.length) return SP.atualizarItem(LISTA_CONFIG, items[0].Id, { Valor: valor });
+      return SP.criarItem(LISTA_CONFIG, { Title: chave, Valor: valor });
+    }
+
+    function renderConfiguracoes() {
+      var el = document.getElementById('tab-config');
+      if (!el) return;
+      if (!isAdmin()) { el.innerHTML = '<div class="alert alert-err" style="margin-top:16px">Acesso restrito a superadministradores.</div>'; return; }
+
+      function listaEmailsHtml(id, emails) {
+        var h = '<div id="cfg-list-'+id+'" style="margin-bottom:8px">';
+        emails.forEach(function(e,i){
+          h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">';
+          h += '<input type="email" value="'+e+'" data-cfg="'+id+'" data-idx="'+i+'" style="flex:1;padding:6px 9px;border:1px solid #ccc;border-radius:4px;font-size:13px">';
+          h += '<button onclick="removeCfgEmail(\''+id+'\','+i+')" style="background:#fde7e9;border:1px solid #ffa39e;color:#a8071a;border-radius:4px;padding:5px 8px;cursor:pointer;font-size:12px">✕</button>';
+          h += '</div>';
+        });
+        h += '</div>';
+        h += '<button onclick="addCfgEmail(\''+id+'\')" class="secondary" style="font-size:12px;padding:5px 12px">+ Adicionar email</button>';
+        return h;
+      }
+
+      var obrasHtml = (APP.obras||[]).map(function(o){
+        return '<div style="border:1px solid #e8e8e8;border-radius:8px;padding:12px;margin-bottom:10px">'+
+          '<div style="font-weight:700;font-size:14px;color:#0078d4;margin-bottom:6px">'+o.Title+'</div>'+
+          '<label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Responsáveis (emails separados por ponto-e-vírgula)</label>'+
+          '<div style="display:flex;gap:6px">'+
+          '<input type="text" id="resp-obra-'+o.Id+'" value="'+(o.Responsaveis||'')+'" placeholder="Deixe vazio = todos têm acesso" style="flex:1;padding:7px 10px;border:1px solid #ccc;border-radius:5px;font-size:13px">'+
+          '<button onclick="salvarResponsaveisObra('+o.Id+')" class="primary" style="font-size:12px;padding:6px 14px;white-space:nowrap">Salvar</button>'+
+          '</div><div id="resp-msg-'+o.Id+'" style="font-size:12px;margin-top:4px"></div>'+
+          '</div>';
+      }).join('');
+
+      el.innerHTML =
+        '<div class="card" style="margin-top:16px">'+
+          '<div class="card-title">⚙ Configurações do sistema</div>'+
+          '<p style="font-size:13px;color:#666;margin:0 0 20px">Gerencie permissões de acesso sem precisar editar o código.</p>'+
+
+          '<div style="margin-bottom:24px">'+
+            '<div style="font-size:13px;font-weight:700;color:#222;margin-bottom:4px;padding-bottom:6px;border-bottom:2px solid #f0f0f0">🔑 Superadministradores</div>'+
+            '<p style="font-size:12px;color:#888;margin:6px 0 10px">Acesso total: configurações, foto das obras, debug.</p>'+
+            listaEmailsHtml('admin', CONFIG.adminEmails)+
+            '<button onclick="salvarCfgEmails(\'admin\',\'ADMIN_EMAILS\')" class="primary" style="margin-top:10px;font-size:12px">Salvar administradores</button>'+
+            '<span id="cfg-msg-admin" style="font-size:12px;margin-left:10px"></span>'+
+          '</div>'+
+
+          '<div style="margin-bottom:24px">'+
+            '<div style="font-size:13px;font-weight:700;color:#222;margin-bottom:4px;padding-bottom:6px;border-bottom:2px solid #f0f0f0">📋 Diretoria</div>'+
+            '<p style="font-size:12px;color:#888;margin:6px 0 10px">Recebem notificações de solicitação de equipamento e podem marcá-las como lidas.</p>'+
+            listaEmailsHtml('dir', CONFIG.direitoriaEmails)+
+            '<button onclick="salvarCfgEmails(\'dir\',\'DIRETORIA_EMAILS\')" class="primary" style="margin-top:10px;font-size:12px">Salvar diretoria</button>'+
+            '<span id="cfg-msg-dir" style="font-size:12px;margin-left:10px"></span>'+
+          '</div>'+
+
+          '<div>'+
+            '<div style="font-size:13px;font-weight:700;color:#222;margin-bottom:4px;padding-bottom:6px;border-bottom:2px solid #f0f0f0">🏗 Acesso por obra</div>'+
+            '<p style="font-size:12px;color:#888;margin:6px 0 12px">Defina quais usuários têm acesso a cada obra. Deixar vazio = todos os usuários autenticados têm acesso.</p>'+
+            obrasHtml+
+          '</div>'+
+        '</div>';
+    }
+
+    function addCfgEmail(id) {
+      var list = id === 'admin' ? CONFIG.adminEmails : CONFIG.direitoriaEmails;
+      list.push('');
+      renderConfiguracoes();
+    }
+    function removeCfgEmail(id, idx) {
+      var list = id === 'admin' ? CONFIG.adminEmails : CONFIG.direitoriaEmails;
+      list.splice(idx, 1);
+      renderConfiguracoes();
+    }
+    async function salvarCfgEmails(id, chave) {
+      var inputs = document.querySelectorAll('[data-cfg="'+id+'"]');
+      var emails = Array.from(inputs).map(function(i){return i.value.trim();}).filter(Boolean);
+      var msg = document.getElementById('cfg-msg-'+id);
+      if (msg) msg.textContent = 'Salvando...';
+      try {
+        await salvarConfigItem(chave, emails.join(';'));
+        if (id === 'admin') CONFIG.adminEmails = emails;
+        else CONFIG.direitoriaEmails = emails;
+        if (msg) { msg.style.color='#3A9C4E'; msg.textContent='✓ Salvo!'; setTimeout(function(){msg.textContent='';},2500); }
+      } catch(e) {
+        if (msg) { msg.style.color='#E65100'; msg.textContent='Erro: '+e.message; }
+      }
+    }
+    async function salvarResponsaveisObra(obraId) {
+      var input = document.getElementById('resp-obra-'+obraId);
+      var msg = document.getElementById('resp-msg-'+obraId);
+      if (!input) return;
+      if (msg) msg.textContent = 'Salvando...';
+      try {
+        await SP.atualizarItem(LISTA_OBRAS, obraId, { Responsaveis: input.value.trim() });
+        var obra = APP.obras.find(function(o){return o.Id===obraId;});
+        if (obra) obra.Responsaveis = input.value.trim();
+        if (msg) { msg.style.color='#3A9C4E'; msg.textContent='✓ Salvo!'; setTimeout(function(){msg.textContent='';},2500); }
+      } catch(e) {
+        if (msg) { msg.style.color='#E65100'; msg.textContent='Erro: '+e.message; }
+      }
+    }
+
+    /* =================================================================
        CARREGAMENTO
        ================================================================= */
     async function carregarDadosObra() {
@@ -3086,13 +3218,15 @@
       document.getElementById('user-info').textContent = currentAccount.name;
       document.getElementById('painel-user-info').textContent = currentAccount.name;
       document.getElementById('login-screen').style.display = 'none';
-      var isAdmin = ADMIN_EMAILS.some(function (e) { return e.toLowerCase() === (APP.usuario.email || '').toLowerCase() });
-      if (isAdmin) document.getElementById('btn-debug').style.display = '';
+      if (isAdmin()) document.getElementById('btn-debug').style.display = '';
       bindEvents();
       document.getElementById('r-data').value = new Date().toISOString().slice(0, 10);
       try {
+        await carregarConfig();
+        if (isAdmin()) document.getElementById('btn-debug').style.display = '';
         var todasObras = await DataAPI.listarObras();
         APP.obras = todasObras.filter(function (o) {
+          if (isAdmin()) return true;
           if (!o.Responsaveis || o.Responsaveis.trim() === '') return true;
           var emails = o.Responsaveis.toLowerCase().split(';').map(function (e) { return e.trim() });
           return emails.indexOf((APP.usuario.email || '').toLowerCase()) >= 0;
@@ -3118,11 +3252,13 @@
         html += '<div class="obra-card">';
         html += '<div class="obra-card-img" style="background:linear-gradient(135deg,'+cor+'e0 0%,'+cor+'70 100%)">';
         html += '<div class="obra-card-img-placeholder" id="card-placeholder-'+o.Id+'"><span style="filter:drop-shadow(0 2px 4px rgba(0,0,0,.2))">🏗</span></div>';
-        html += '<img id="card-img-'+o.Id+'" src="" alt="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover">';
-        html += '<label class="obra-card-img-overlay" title="Alterar foto da obra" onclick="event.stopPropagation()">';
-        html += '<span>📷<span style="font-size:11px">Alterar foto</span></span>';
-        html += '<input type="file" accept="image/*" style="display:none" onchange="uploadFotoObra('+o.Id+',this)">';
-        html += '</label>';
+        html += '<img id="card-img-'+o.Id+'" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" style="display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:cover">';
+        if (isAdmin()) {
+          html += '<label class="obra-card-img-overlay" title="Alterar foto da obra" onclick="event.stopPropagation()">';
+          html += '<span>📷<span style="font-size:11px">Alterar foto</span></span>';
+          html += '<input type="file" accept="image/*" style="display:none" onchange="uploadFotoObra('+o.Id+',this)">';
+          html += '</label>';
+        }
         html += '</div>';
         html += '<div class="obra-card-body" onclick="selecionarObra('+o.Id+')" style="cursor:pointer"><div class="obra-card-title">'+o.Title+'</div>'+badgeHtml+'</div>';
         html += '</div>';
@@ -3188,6 +3324,8 @@
       sel.value = id;
       var nomeEl = document.getElementById('header-obra-nome');
       if (nomeEl) nomeEl.textContent = APP.obraAtual.Title;
+      var tabCfgBtn = document.getElementById('tab-btn-config');
+      if (tabCfgBtn) tabCfgBtn.style.display = isAdmin() ? '' : 'none';
       document.getElementById('painel-obras').style.display = 'none';
       document.getElementById('app-main').style.display = 'block';
       try {
