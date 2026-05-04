@@ -1023,29 +1023,29 @@
         <div id="sub-estacas" style="display:none">
           <div class="card">
             <div class="card-title">Cadastro de camadas por célula (100m = 5 estacas)</div>
-            <div
-              style="background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0050a0">
-              Cada célula equivale a 100m (5 estacas). Informe estacas em múltiplos de 5.
+            <div style="background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#0050a0">
+              Cada célula = 100m (5 estacas × 20m). Pode digitar qualquer estaca — o sistema ajusta automaticamente para os limites de célula. Selecione um ou mais serviços para cadastrar de uma vez.
+            </div>
+            <div class="form-field" style="margin-bottom:14px">
+              <label style="margin-bottom:6px;display:block">Serviços <span style="font-size:11px;color:#888;font-weight:400">(selecione um ou mais)</span></label>
+              <div id="p-servicos-check" style="display:flex;flex-wrap:wrap;gap:8px"></div>
             </div>
             <div class="form-grid g3">
-              <div class="form-field"><label>Serviço</label><select id="p-serv"></select></div>
               <div class="form-field">
                 <label>Estaca início</label>
-                <input type="number" id="p-ini" min="0" step="5" value="0">
+                <input type="number" id="p-ini" min="0" step="1" value="0">
                 <div class="km-hint" id="p-ini-km">km 0+000</div>
               </div>
               <div class="form-field">
                 <label>Estaca fim</label>
-                <input type="number" id="p-fim" min="0" step="5" value="0">
+                <input type="number" id="p-fim" min="0" step="1" value="0">
                 <div class="km-hint" id="p-fim-km">km 0+000</div>
               </div>
-            </div>
-            <div class="form-grid">
               <div class="form-field"><label>Nº de camadas</label><input type="number" id="p-cam" min="1" value="1">
-                <div style="font-size:11px;color:#888;margin-top:4px">Qualquer serviço pode ter múltiplas camadas.
-                  Terraplanagem costuma ter mais camadas (aterros); pavimentação geralmente 1 por serviço.</div>
+                <div style="font-size:11px;color:#888;margin-top:4px">Terraplanagem costuma ter mais camadas; pavimentação geralmente 1.</div>
               </div>
             </div>
+            <div id="p-preview" style="font-size:12px;color:#555;background:#f9f9f9;border:1px solid #eee;border-radius:5px;padding:8px 10px;margin-bottom:10px;display:none"></div>
             <button class="primary" id="btn-proj">Aplicar ao intervalo</button>
             <div id="p-msg"></div>
             <div style="margin-top:24px">
@@ -1337,7 +1337,7 @@
     function servConcluido(sv, est) {
       var gs = normalizarEstaca(est);
       var n = camadasProj(gs, sv);
-      if (n === 0) return false;
+      if (n === 0) return true; // serviço não planejado nessa célula → sem pré-requisito
       return camadasExec(gs, sv) >= n;
     }
 
@@ -1370,7 +1370,7 @@
        ================================================================= */
     function popularSelects() {
       var servicos = getServicosObra();
-      var ids = ['r-serv', 'p-serv', 'h-serv', 'pf-serv'];
+      var ids = ['r-serv', 'h-serv', 'pf-serv'];
       ids.forEach(function (id) {
         var sel = document.getElementById(id); if (!sel) return;
         var isFilter = id === 'h-serv' || id === 'pf-serv';
@@ -1378,6 +1378,30 @@
         servicos.forEach(function (s) { html += '<option value="' + s + '">' + NOMES[s] + '</option>' });
         sel.innerHTML = html;
       });
+      // Populate multi-service checkboxes in Estacas form
+      var chkContainer = document.getElementById('p-servicos-check');
+      if (chkContainer) {
+        chkContainer.innerHTML = '';
+        servicos.forEach(function (s) {
+          var lbl = document.createElement('label');
+          lbl.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1.5px solid #ddd;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;user-select:none;transition:border-color .15s,background .15s';
+          var chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.value = s;
+          chk.style.cssText = 'accent-color:' + (CORES[s] || '#0078d4');
+          var dot = document.createElement('span');
+          dot.style.cssText = 'width:9px;height:9px;border-radius:50%;background:' + (CORES[s] || '#0078d4') + ';display:inline-block;flex-shrink:0';
+          var txt = document.createTextNode(NOMES[s] || s);
+          lbl.appendChild(chk);
+          lbl.appendChild(dot);
+          lbl.appendChild(txt);
+          chk.onchange = function () {
+            lbl.style.borderColor = chk.checked ? (CORES[s] || '#0078d4') : '#ddd';
+            lbl.style.background = chk.checked ? (CORES[s] ? CORES[s] + '18' : '#e8f4fd') : '';
+          };
+          chkContainer.appendChild(lbl);
+        });
+      }
     }
 
     /* =================================================================
@@ -2086,31 +2110,44 @@
         finally { btn.disabled = false; btn.textContent = 'Salvar' }
       };
 
-      // Cadastro de projeto (células)
+      // Cadastro de projeto (células) — multi-serviço
       document.getElementById('btn-proj').onclick = async function () {
-        var sv = document.getElementById('p-serv').value;
+        var checkeds = Array.from(document.querySelectorAll('#p-servicos-check input[type=checkbox]:checked'));
+        var servsSel = checkeds.map(function (c) { return c.value });
         var ini = normalizarEstaca(parseInt(document.getElementById('p-ini').value));
         var fim = normalizarEstaca(parseInt(document.getElementById('p-fim').value));
         var cam = parseInt(document.getElementById('p-cam').value);
         var pm = document.getElementById('p-msg');
-        if (!sv) { pm.innerHTML = '<div class="alert alert-err">Selecione o serviço.</div>'; return }
+        if (servsSel.length === 0) { pm.innerHTML = '<div class="alert alert-err">Selecione ao menos um serviço.</div>'; return }
         if (isNaN(ini) || isNaN(fim) || ini > fim) { pm.innerHTML = '<div class="alert alert-err">Intervalo inválido.</div>'; return }
         if (isNaN(cam) || cam < 1) { pm.innerHTML = '<div class="alert alert-err">Nº de camadas inválido.</div>'; return }
-        var btn = this; btn.disabled = true; btn.textContent = 'Salvando...';
-        var total = (fim - ini) / CELULA_ESTACAS + 1, feito = 0;
-        try {
-          for (var e = ini; e <= fim; e += CELULA_ESTACAS * 5) {
-            var lote = [];
-            for (var j = e; j <= Math.min(e + CELULA_ESTACAS * 4, fim); j += CELULA_ESTACAS)lote.push(DataAPI.salvarProjeto(APP.obraAtual.Id, j, sv, cam));
-            await Promise.all(lote); feito += lote.length;
-            pm.innerHTML = '<div class="alert alert-warn">Salvando... ' + feito + ' de ' + total + ' células (' + Math.round(feito / total * 100) + '%)</div>';
-            await new Promise(function (r) { setTimeout(r, 800) });
-          }
-          await carregarDadosObra();
-          pm.innerHTML = '<div class="alert alert-ok">✓ ' + NOMES[sv] + ': ' + estakaParaKm(ini) + ' a ' + estakaParaKm(fim + CELULA_ESTACAS) + ' com ' + cam + ' camada(s).</div>';
-          renderProjeto();
-        } catch (e) { pm.innerHTML = '<div class="alert alert-err">Erro: ' + e.message + '</div>' }
-        finally { btn.disabled = false; btn.textContent = 'Aplicar ao intervalo' }
+        var btn = this; btn.disabled = true;
+        var celulas = (fim - ini) / CELULA_ESTACAS + 1;
+        var totalOps = servsSel.length * celulas, feitoOps = 0;
+        pm.innerHTML = '<div class="alert alert-warn">Iniciando... 0 de ' + totalOps + ' operações</div>';
+        var sucessos = [], erros = [];
+        for (var si = 0; si < servsSel.length; si++) {
+          var sv = servsSel[si];
+          btn.textContent = 'Salvando ' + (si + 1) + '/' + servsSel.length + '…';
+          try {
+            for (var e = ini; e <= fim; e += CELULA_ESTACAS * 5) {
+              var lote = [];
+              for (var j = e; j <= Math.min(e + CELULA_ESTACAS * 4, fim); j += CELULA_ESTACAS) lote.push(DataAPI.salvarProjeto(APP.obraAtual.Id, j, sv, cam));
+              await Promise.all(lote); feitoOps += lote.length;
+              pm.innerHTML = '<div class="alert alert-warn">Salvando... ' + feitoOps + ' de ' + totalOps + ' operações (' + Math.round(feitoOps / totalOps * 100) + '%)</div>';
+              await new Promise(function (r) { setTimeout(r, 600) });
+            }
+            sucessos.push(NOMES[sv] || sv);
+          } catch (err) { erros.push((NOMES[sv] || sv) + ': ' + err.message) }
+        }
+        await carregarDadosObra(); renderProjeto();
+        if (erros.length === 0) {
+          pm.innerHTML = '<div class="alert alert-ok">✓ Salvo com sucesso — ' + sucessos.join(', ') + ' | ' + estakaParaKm(ini) + ' a ' + estakaParaKm(fim + CELULA_ESTACAS) + ' com ' + cam + ' camada(s).</div>';
+        } else {
+          pm.innerHTML = (sucessos.length ? '<div class="alert alert-ok">✓ ' + sucessos.join(', ') + ' salvos.</div>' : '') +
+            '<div class="alert alert-err">Erros: ' + erros.join(' | ') + '</div>';
+        }
+        btn.disabled = false; btn.textContent = 'Aplicar ao intervalo';
       };
 
       // Cadastro de evento
