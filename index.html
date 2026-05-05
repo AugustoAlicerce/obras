@@ -496,7 +496,7 @@
     .diario-cel-bottom{display:flex;gap:5px;align-items:center;justify-content:center}
     .diario-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);display:inline-block;flex-shrink:0}
     .diario-dot-sol{font-size:13px;line-height:1}
-    .diario-interc-badge{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);font-size:8px;font-weight:700;color:#fff;flex-shrink:0;line-height:1}
+    .diario-interc-badge{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:2px solid #fff;font-size:9px;font-weight:800;color:#fff;flex-shrink:0;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.35)}
     .diario-readonly-banner{background:#fff3cd;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7c5a00;display:flex;align-items:center;gap:8px}
     .diario-retroativo-banner{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1b5e20;display:flex;align-items:center;gap:8px}
     .diario-interc-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f5f5f5;border-radius:6px;margin-bottom:5px;font-size:12px}
@@ -895,9 +895,10 @@
                 <span style="color:#ccc">|</span>
                 <span style="font-size:10px">☀ Claro &nbsp;🌧 Chuva</span>
                 <span style="color:#ccc">|</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:50%;background:#7B1A1A;display:inline-block;border:1px solid #ddd"></span>Equip.</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:50%;background:#5D4037;display:inline-block;border:1px solid #ddd"></span>Material</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:50%;background:#37474F;display:inline-block;border:1px solid #ddd"></span>Outros</span>
+                <span style="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.3px">Pendências:</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:14px;height:14px;border-radius:50%;background:#7B1A1A;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;border:2px solid #ccc;box-shadow:0 1px 2px rgba(0,0,0,.2)">E</span>Equip.</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:14px;height:14px;border-radius:50%;background:#5D4037;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;border:2px solid #ccc;box-shadow:0 1px 2px rgba(0,0,0,.2)">M</span>Material</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:14px;height:14px;border-radius:50%;background:#37474F;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;border:2px solid #ccc;box-shadow:0 1px 2px rgba(0,0,0,.2)">O</span>Outros</span>
                 <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="font-size:9px">📋</span>Solicitação</span>
               </div>
             </div>
@@ -1293,7 +1294,8 @@
       async criarIntercorrencia(obraId, tipo, descricao, dataInicio) {
         return SP.criarItem(LISTA_INTERCORRENCIAS, { Title: obraId+'-'+tipo+'-'+dataInicio, ObraId: obraId, TipoInterc: tipo, Descricao: descricao || '', DataInicio: dataInicio });
       },
-      async resolverIntercorrencia(id, dataFim) { return SP.atualizarItem(LISTA_INTERCORRENCIAS, id, { DataFim: dataFim }) }
+      async resolverIntercorrencia(id, dataFim) { return SP.atualizarItem(LISTA_INTERCORRENCIAS, id, { DataFim: dataFim }) },
+      async atualizarPendencia(id, campos) { return SP.atualizarItem(LISTA_INTERCORRENCIAS, id, campos) }
     };
 
     /* =================================================================
@@ -2427,7 +2429,7 @@
         r += linhaCont('#E65100','Impraticável',cont.impraticavel);
         r += linhaCont('#78909C','FS / Feriado',cont.fdsReg);
         r += '<div style="border-top:1px solid #e0e0e0;margin:10px 0"></div>';
-        r += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">INTERCORRÊNCIAS (dias)</div>';
+        r += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">PENDÊNCIAS (dias)</div>';
         r += linhaCont(CORES_INTERC.equip,'Equip. parado',cont.intercEquip,true);
         r += linhaCont(CORES_INTERC.material,'Falta Material',cont.intercMat,true);
         r += linhaCont(CORES_INTERC.outros,'Outros',cont.intercOutros,true);
@@ -2511,7 +2513,7 @@
             eqsDia.forEach(function(e){ bodyHtml += '<div style="font-size:12px;margin-bottom:2px">• '+e.Equipamento+(e.Descricao?' — '+e.Descricao:'')+'</div>'; });
           }
           if (intercAtivas.length) {
-            bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Intercorrências ativas</div>';
+            bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Pendências em aberto</div>';
             intercAtivas.forEach(function(ic){
               var cor = CORES_INTERC[ic.TipoInterc]||'#555';
               bodyHtml += '<div style="font-size:12px;margin-bottom:3px;display:flex;align-items:center;gap:6px">'+
@@ -2555,52 +2557,51 @@
                _periodoBtn('cond',periodo,'impraticavel','✕ Impraticável','#E65100',atual);
       }
 
-      function eqRowHtml(spId, eq, desc) {
-        return '<div class="diario-eq-row" data-sp-id="'+(spId||'')+'">'+
-          '<input type="text" placeholder="Equipamento" value="'+eq.replace(/"/g,'&quot;')+'" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px">'+
-          '<input type="text" placeholder="O que aconteceu" value="'+desc.replace(/"/g,'&quot;')+'" style="padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px">'+
-          '<button onclick="removerEqRow(this)" style="background:#fde7e9;border:1px solid #ffa39e;color:#a8071a;border-radius:4px;padding:5px 8px;cursor:pointer;font-size:12px;white-space:nowrap">✕</button>'+
-          '</div>';
-      }
-      var eqsHtml = eqsDia.map(function(e){ return eqRowHtml(e.Id, e.Equipamento||'', e.Descricao||''); }).join('');
-
-      // Intercorrências ativas (pode resolver hoje)
-      var intercAtivasHtml = '';
+      // Pendências ativas (editável + resolver hoje)
+      var pendAtivasHtml = '';
+      var PLACEHOLDER_PEND = { equip: 'Qual equipamento? Ex: Motoniveladora A-01', material: 'Qual material? Ex: CBUQ, Brita n°1...', outros: 'Descreva...' };
       if (intercAtivas.length) {
         intercAtivas.forEach(function(ic) {
           var cor = CORES_INTERC[ic.TipoInterc]||'#555';
           var dIni = (ic.DataInicio||'').substring(0,10).split('-').reverse().join('/');
-          intercAtivasHtml +=
-            '<div class="diario-interc-row ativa" data-interc-id="'+ic.Id+'">'+
-              '<span style="width:10px;height:10px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
-              '<span style="flex:1;font-weight:600">'+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+
-                (ic.Descricao?' <span style="font-weight:400;color:#888">— '+ic.Descricao+'</span>':'')+
-                ' <small style="color:#aaa;font-weight:400">(desde '+dIni+')</small></span>'+
-              '<label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#3A9C4E;cursor:pointer;white-space:nowrap">'+
+          var descEsc = (ic.Descricao||'').replace(/"/g,'&quot;');
+          pendAtivasHtml +=
+            '<div class="diario-interc-row ativa" data-pend-id="'+ic.Id+'">'+
+              '<div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:0">'+
+                '<div style="display:flex;align-items:center;gap:6px">'+
+                  '<span style="width:10px;height:10px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
+                  '<span style="font-weight:700;font-size:12px">'+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+'</span>'+
+                  '<small style="color:#aaa;font-size:11px">(desde '+dIni+')</small>'+
+                '</div>'+
+                '<input type="text" class="pend-desc-edit" data-pend-id="'+ic.Id+'" data-pend-orig="'+descEsc+'" value="'+descEsc+'" placeholder="'+(PLACEHOLDER_PEND[ic.TipoInterc]||'Descrição...')+'" style="padding:5px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;width:100%">'+
+              '</div>'+
+              '<label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#3A9C4E;cursor:pointer;white-space:nowrap;flex-shrink:0">'+
                 '<input type="checkbox" id="resolver-'+ic.Id+'" style="accent-color:#3A9C4E"> Resolver hoje'+
               '</label>'+
             '</div>';
         });
       }
 
-      // Novas intercorrências (tipos ainda não ativos hoje)
+      // Novas pendências (tipos ainda não ativos)
       var tiposAtivos = {};
       intercAtivas.forEach(function(ic){ tiposAtivos[ic.TipoInterc] = true; });
-      var novasIntercHtml = '';
+      var novasPendHtml = '';
       Object.keys(NOMES_INTERC).forEach(function(tipo) {
         if (tiposAtivos[tipo]) return;
         var cor = CORES_INTERC[tipo]||'#555';
-        novasIntercHtml +=
-          '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-bottom:5px">'+
-            '<input type="checkbox" class="nova-interc" data-tipo="'+tipo+'" style="accent-color:'+cor+';width:14px;height:14px">'+
-            '<span style="width:8px;height:8px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
-            NOMES_INTERC[tipo]+
-          '</label>';
-        if (tipo === 'outros') {
-          novasIntercHtml += '<div id="interc-outros-wrap" style="display:none;margin-left:22px;margin-bottom:6px">'+
-            '<input type="text" id="interc-outros-desc" placeholder="Descreva a intercorrência..." style="width:100%;padding:6px 9px;border:1px solid #ccc;border-radius:4px;font-size:12px">'+
+        var wrapId = 'pend-nova-wrap-'+tipo;
+        var descId = 'pend-nova-desc-'+tipo;
+        novasPendHtml +=
+          '<div style="margin-bottom:8px">'+
+            '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">'+
+              '<input type="checkbox" class="nova-pend" data-tipo="'+tipo+'" data-wrap="'+wrapId+'" style="accent-color:'+cor+';width:14px;height:14px">'+
+              '<span style="width:9px;height:9px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
+              '<span style="font-weight:600">'+NOMES_INTERC[tipo]+'</span>'+
+            '</label>'+
+            '<div id="'+wrapId+'" style="display:none;margin-top:4px;margin-left:24px">'+
+              '<input type="text" id="'+descId+'" placeholder="'+(PLACEHOLDER_PEND[tipo]||'Descrição...')+'" style="width:100%;padding:5px 9px;border:1px solid #ccc;border-radius:4px;font-size:12px">'+
+            '</div>'+
           '</div>';
-        }
       });
 
       modalContent.innerHTML =
@@ -2638,17 +2639,13 @@
             '<input type="number" id="diario-diesel-esq" min="0" step="1" value="'+estoque+'" style="width:100%;padding:7px 9px;border:1px solid #ccc;border-radius:5px;font-size:13px"></div>'+
           '</div>'+
 
-          '<div class="diario-secao">Equipamentos com Defeito</div>'+
-          '<div id="diario-eqs-lista">'+eqsHtml+'</div>'+
-          '<button onclick="adicionarEqRow()" class="secondary" style="font-size:12px;padding:5px 12px;margin-top:4px">+ Adicionar equipamento</button>'+
-
-          '<div class="diario-secao">Intercorrências</div>'+
+          '<div class="diario-secao">Pendências</div>'+
           (intercAtivas.length
-            ? '<div style="margin-bottom:10px"><div style="font-size:11px;color:#888;margin-bottom:5px">Ativas — marque para resolver hoje:</div>'+intercAtivasHtml+'</div>'
+            ? '<div style="margin-bottom:12px"><div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600">EM ABERTO — edite se necessário e marque para resolver:</div>'+pendAtivasHtml+'</div>'
             : '')+
-          (novasIntercHtml
-            ? '<div><div style="font-size:11px;color:#888;margin-bottom:5px">Registrar nova intercorrência:</div>'+novasIntercHtml+'</div>'
-            : '<div style="font-size:12px;color:#aaa">Todas as intercorrências estão ativas ou nenhuma aplicável.</div>')+
+          (novasPendHtml
+            ? '<div><div style="font-size:11px;color:#888;margin-bottom:6px;font-weight:600">REGISTRAR NOVA PENDÊNCIA:</div>'+novasPendHtml+'</div>'
+            : (!intercAtivas.length ? '<div style="font-size:12px;color:#aaa;margin-bottom:8px">Nenhuma pendência em aberto.</div>' : ''))+
 
           '<div class="diario-secao">Solicitação de Equipamento à Diretoria</div>'+
           '<textarea id="diario-solicitacao" rows="2" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Descreva o equipamento necessário e a justificativa...">'+solicitacao+'</textarea>'+
@@ -2669,14 +2666,11 @@
           '<div id="diario-msg" style="margin-top:8px"></div>'+
         '</div>';
 
-      // Toggle "Outros" textarea visibility
-      var novasChks = modalContent.querySelectorAll('.nova-interc');
-      novasChks.forEach(function(chk) {
+      // Toggle campo descrição ao marcar nova pendência
+      modalContent.querySelectorAll('.nova-pend').forEach(function(chk) {
         chk.addEventListener('change', function() {
-          if (chk.dataset.tipo === 'outros') {
-            var wrap = document.getElementById('interc-outros-wrap');
-            if (wrap) wrap.style.display = chk.checked ? 'block' : 'none';
-          }
+          var wrap = document.getElementById(chk.dataset.wrap);
+          if (wrap) wrap.style.display = chk.checked ? 'block' : 'none';
         });
       });
 
@@ -2745,28 +2739,23 @@
         };
         var savedId = await DataAPI.salvarDiario(APP.obraAtual.Id, dataStr, campos);
 
-        // Deletar equipamentos removidos
-        for (var i=0; i<_diarioEqsRemovidos.length; i++) {
-          try { await DataAPI.deletarEquipamentoQuebrado(_diarioEqsRemovidos[i]); } catch(e2){}
-        }
-
-        // Criar novos equipamentos
-        var rows = document.querySelectorAll('#diario-eqs-lista .diario-eq-row');
-        var novosEqs = [];
-        rows.forEach(function(row) {
-          if (!row.dataset.spId) {
-            var inputs = row.querySelectorAll('input[type=text]');
-            var eq = inputs[0] && inputs[0].value.trim();
-            var desc = inputs[1] && inputs[1].value.trim();
-            if (eq) novosEqs.push({eq:eq, desc:desc});
+        // Atualizar descrição de pendências ativas (se editou)
+        var descEdits = document.querySelectorAll('.pend-desc-edit');
+        for (var de=0; de<descEdits.length; de++) {
+          var el = descEdits[de];
+          var icId2 = parseInt(el.dataset.pendId);
+          var novaDesc = el.value.trim();
+          var origDesc = el.dataset.pendOrig || '';
+          if (novaDesc !== origDesc) {
+            try {
+              await DataAPI.atualizarPendencia(icId2, { Descricao: novaDesc });
+              var icRef = APP.intercorrencias.find(function(x){return x.Id===icId2;});
+              if (icRef) icRef.Descricao = novaDesc;
+            } catch(e2){}
           }
-        });
-        var existentes = (APP.diarioEq||[]).filter(function(e){return (e.Data||'').substring(0,10)===dataStr&&_diarioEqsRemovidos.indexOf(e.Id)<0;}).length;
-        for (var j=0; j<novosEqs.length; j++) {
-          await DataAPI.criarEquipamentoQuebrado(APP.obraAtual.Id, dataStr, novosEqs[j].eq, novosEqs[j].desc, existentes+j+1);
         }
 
-        // Resolver intercorrências marcadas
+        // Resolver pendências marcadas
         var resolverChks = document.querySelectorAll('[id^="resolver-"]:checked');
         resolverChks.forEach(function(chk) {
           var icId = parseInt(chk.id.replace('resolver-',''));
@@ -2775,12 +2764,12 @@
           if (ic) ic.DataFim = dataStr;
         });
 
-        // Criar novas intercorrências
-        var novasChks = document.querySelectorAll('.nova-interc:checked');
+        // Criar novas pendências marcadas
+        var novasChks = document.querySelectorAll('.nova-pend:checked');
         for (var ni=0; ni<novasChks.length; ni++) {
           var tipo = novasChks[ni].dataset.tipo;
-          var descEl = tipo==='outros' ? document.getElementById('interc-outros-desc') : null;
-          var desc2 = descEl ? descEl.value.trim() : '';
+          var descInput = document.getElementById('pend-nova-desc-'+tipo);
+          var desc2 = descInput ? descInput.value.trim() : '';
           try {
             var nr = await DataAPI.criarIntercorrencia(APP.obraAtual.Id, tipo, desc2, dataStr);
             APP.intercorrencias.push({Id: nr && nr.Id, ObraId: APP.obraAtual.Id, TipoInterc: tipo, Descricao: desc2, DataInicio: dataStr, DataFim: null});
@@ -2799,8 +2788,6 @@
         if (savedId) nf.Id = savedId;
         if (idx>=0) { if (savedId) APP.diario[idx].Id = savedId; Object.assign(APP.diario[idx], nf); }
         else APP.diario.push(nf);
-        APP.diarioEq = (APP.diarioEq||[]).filter(function(e){return _diarioEqsRemovidos.indexOf(e.Id)<0;});
-        novosEqs.forEach(function(ne,j){ APP.diarioEq.push({Data:dataStr, Equipamento:ne.eq, Descricao:ne.desc, ObraId:APP.obraAtual.Id}); });
         _diarioEqsRemovidos = [];
 
         // Upload de fotos na fila
@@ -2837,11 +2824,11 @@
       if (cT||dT) rows+='<div class="tt-row"><span class="tt-lbl">Tarde</span><span>'+(cNomes[cT]||'')+(dT?' — '+(dNomes[dT]||dT):'')+'</span></div>';
       var extras = [];
       if (eqCont) extras.push('🔧 '+eqCont+' equip. parado'+(eqCont>1?'s':''));
-      var intercAtTip = (APP.intercorrencias||[]).filter(function(ic){
+      var pendAtTip = (APP.intercorrencias||[]).filter(function(ic){
         var ini=(ic.DataInicio||'').substring(0,10), fim=(ic.DataFim||'').substring(0,10);
         return ini<=dataStr&&(!fim||fim>=dataStr);
       });
-      intercAtTip.forEach(function(ic){ extras.push('⚠ '+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+(ic.Descricao?': '+ic.Descricao.substring(0,40):'')); });
+      pendAtTip.forEach(function(ic){ extras.push('⚠ '+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+(ic.Descricao?': '+ic.Descricao.substring(0,40):'')); });
       if (ficha.DieselConsumo) extras.push('⛽ '+ficha.DieselConsumo+' L consumidos');
       if (ficha.AtividadesRealizadas&&ficha.AtividadesRealizadas.trim()) extras.push(ficha.AtividadesRealizadas.substring(0,75)+(ficha.AtividadesRealizadas.length>75?'…':''));
       if (ficha.Observacao&&ficha.Observacao.trim()) extras.push('💬 '+ficha.Observacao.substring(0,60)+(ficha.Observacao.length>60?'…':''));
