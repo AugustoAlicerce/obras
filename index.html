@@ -934,13 +934,13 @@
           </div>
           <div class="form-grid g3">
             <div class="form-field">
-              <label>Estaca início (múltiplo de 5)</label>
-              <input type="number" id="r-est" min="0" step="5" placeholder="Ex: 0">
+              <label>Estaca início</label>
+              <input type="number" id="r-est" min="0" step="1" placeholder="Ex: 0">
               <div class="km-hint" id="r-est-km"></div>
             </div>
             <div class="form-field">
               <label>Estaca fim</label>
-              <input type="number" id="r-est-fim" min="0" step="5" placeholder="—" disabled>
+              <input type="number" id="r-est-fim" min="0" step="1" placeholder="—" disabled>
               <div class="km-hint" id="r-est-fim-km"></div>
             </div>
             <div class="form-field"><label>Nº de camadas executadas</label><input type="number" id="r-cam" min="1"
@@ -1322,31 +1322,41 @@
       return ordem.filter(function (sv) { return selecionados.indexOf(sv) >= 0 });
     }
 
-    function camadasProj(est, sv) {
-      var gs = normalizarEstaca(est);
-      var p = APP.projeto.find(function (x) { return x.Estaca === gs && x.Servico === sv });
+    // Stake-level: exact match on a single stake
+    function camadasProjEst(est, sv) {
+      var p = APP.projeto.find(function(x) { return x.Estaca === est && x.Servico === sv; });
       return p ? p.NumCamadas : 0;
     }
+    function camadasExecEst(est, sv) {
+      return APP.execucao.filter(function(e) { return e.Estaca === est && e.Servico === sv; })
+        .reduce(function(a, e) { return a + (e.NumCamadasExecutadas || 0); }, 0);
+    }
 
-    function camadasExec(est, sv) {
-      var gs = normalizarEstaca(est);
-      var s = APP.execucao.filter(function (e) { return e.Estaca === gs && e.Servico === sv }).reduce(function (a, e) { return a + (e.NumCamadasExecutadas || 0) }, 0);
-      return Math.min(s, camadasProj(gs, sv));
+    // Cell-level: aggregate stakes in [gs, gs+CELULA_ESTACAS-1] (for graph display)
+    function camadasProj(gs, sv) {
+      var rows = APP.projeto.filter(function(x) { return x.Estaca >= gs && x.Estaca < gs + CELULA_ESTACAS && x.Servico === sv; });
+      return rows.length > 0 ? rows[0].NumCamadas : 0;
+    }
+    function camadasExec(gs, sv) {
+      var gsEnd = gs + CELULA_ESTACAS;
+      var planRows = APP.projeto.filter(function(x) { return x.Estaca >= gs && x.Estaca < gsEnd && x.Servico === sv; });
+      var planTotal = planRows.reduce(function(a, p) { return a + p.NumCamadas; }, 0);
+      var execTotal = APP.execucao.filter(function(e) { return e.Estaca >= gs && e.Estaca < gsEnd && e.Servico === sv; })
+        .reduce(function(a, e) { return a + (e.NumCamadasExecutadas || 0); }, 0);
+      return planTotal > 0 ? Math.min(execTotal, planTotal) : 0;
     }
 
     function servConcluido(sv, est) {
-      var gs = normalizarEstaca(est);
-      var n = camadasProj(gs, sv);
-      if (n === 0) return true; // serviço não planejado nessa célula → sem pré-requisito
-      return camadasExec(gs, sv) >= n;
+      var n = camadasProjEst(est, sv);
+      if (n === 0) return true; // não planejado nesta estaca → sem pré-requisito
+      return Math.min(camadasExecEst(est, sv), n) >= n;
     }
 
     function preReqOK(sv, est) {
       var servicos = getServicosObra();
       var idx = servicos.indexOf(sv);
-      var gs = normalizarEstaca(est);
       for (var i = 0; i < idx; i++) {
-        if (!servConcluido(servicos[i], gs)) return { ok: false, falta: NOMES[servicos[i]] };
+        if (!servConcluido(servicos[i], est)) return { ok: false, falta: NOMES[servicos[i]] };
       }
       return { ok: true };
     }
@@ -1427,7 +1437,7 @@
         var el = document.getElementById('pct-' + sv); if (!el) return;
         if (sv === 'terra') {
           var tp = 0, te = 0;
-          grupos.forEach(function (g) { var n = camadasProj(g, 'terra'); tp += n; te += camadasExec(g, 'terra') });
+          grupos.forEach(function (g) { var n = camadasProjEst(g, 'terra'); tp += n; te += Math.min(camadasExecEst(g, 'terra'), n); });
           el.textContent = tp > 0 ? Math.round(te / tp * 100) + '%' : '0%';
         } else {
           var estSv = APP.projeto.filter(function (p) { return p.Servico === sv });
@@ -1574,13 +1584,22 @@
       svg.setAttribute('width', W); svg.setAttribute('height', H); svg.style.display = 'block';
 
       function camExecGrafCel(cel, sv) {
-        var gs = cel * CELULA_ESTACAS;
-        var s = execFiltrada.filter(function (e) { return e.Estaca === gs && e.Servico === sv }).reduce(function (a, e) { return a + (e.NumCamadasExecutadas || 0) }, 0);
-        return Math.min(s, camadasProj(gs, sv));
+        var gsStart = cel * CELULA_ESTACAS, gsEnd = gsStart + CELULA_ESTACAS;
+        var planRows = APP.projeto.filter(function(p) { return p.Estaca >= gsStart && p.Estaca < gsEnd && p.Servico === sv; });
+        var planTotal = planRows.reduce(function(a, p) { return a + p.NumCamadas; }, 0);
+        var execTotal = execFiltrada.filter(function(e) { return e.Estaca >= gsStart && e.Estaca < gsEnd && e.Servico === sv; })
+          .reduce(function(a, e) { return a + (e.NumCamadasExecutadas || 0); }, 0);
+        return planTotal > 0 ? Math.min(execTotal, planTotal) : 0;
       }
       function svConcGrafCel(sv, cel) {
-        var gs = cel * CELULA_ESTACAS; var n = camadasProj(gs, sv);
-        if (n === 0) return false; return camExecGrafCel(cel, sv) >= n;
+        var gsStart = cel * CELULA_ESTACAS, gsEnd = gsStart + CELULA_ESTACAS;
+        var planned = APP.projeto.filter(function(p) { return p.Estaca >= gsStart && p.Estaca < gsEnd && p.Servico === sv; });
+        if (planned.length === 0) return false;
+        return planned.every(function(p) {
+          var camExec = execFiltrada.filter(function(e) { return e.Estaca === p.Estaca && e.Servico === sv; })
+            .reduce(function(a, e) { return a + (e.NumCamadasExecutadas || 0); }, 0);
+          return camExec >= p.NumCamadas;
+        });
       }
 
       // === EVENTOS / OUTROS SERVIÇOS ===
@@ -1632,6 +1651,13 @@
         var tick = document.createElementNS(ns, 'line'); tick.setAttribute('x1', L + (c - celIni) * CW + CW / 2); tick.setAttribute('y1', KM_LABEL_Y + 2); tick.setAttribute('x2', L + (c - celIni) * CW + CW / 2); tick.setAttribute('y2', SERV_LINE_Y); tick.setAttribute('stroke', '#ddd'); tick.setAttribute('stroke-width', '0.5'); svg.appendChild(tick);
       }
 
+      // "km" label on left — identifies the unit of the km axis
+      var kmUnitLbl = document.createElementNS(ns, 'text');
+      kmUnitLbl.setAttribute('x', L - 8); kmUnitLbl.setAttribute('y', KM_LABEL_Y);
+      kmUnitLbl.setAttribute('text-anchor', 'end'); kmUnitLbl.setAttribute('font-size', '9');
+      kmUnitLbl.setAttribute('fill', '#888'); kmUnitLbl.setAttribute('font-style', 'italic');
+      kmUnitLbl.textContent = 'km'; svg.appendChild(kmUnitLbl);
+
       // separador
       var sep2 = document.createElementNS(ns, 'line'); sep2.setAttribute('x1', L - 10); sep2.setAttribute('y1', SERV_LINE_Y); sep2.setAttribute('x2', W - 4); sep2.setAttribute('y2', SERV_LINE_Y); sep2.setAttribute('stroke', '#ddd'); sep2.setAttribute('stroke-width', '1'); svg.appendChild(sep2);
 
@@ -1641,11 +1667,13 @@
         lb.textContent = NOMES_CHART[s] || NOMES[s]; svg.appendChild(lb);
         for (var c = celIni; c <= celFim; c++) {
           var gs = c * CELULA_ESTACAS;
+          var gsEndT = Math.min(gs + CELULA_ESTACAS - 1, APP.obraAtual.EstacaFinal || 99999);
+          var tipRange = 'E.' + gs + ' a E.' + gsEndT;
           var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', L + (c - celIni) * CW); r.setAttribute('y', SERV_START + i * (CH + G)); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
           var temProj = camadasProj(gs, s) > 0;
           if (!temProj) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.5'); r.setAttribute('stroke-dasharray', '2,2') }
           else { var conc = svConcGrafCel(s, c); r.setAttribute('fill', conc ? CORES[s] : '#f0f0f0'); r.setAttribute('stroke', conc ? CORES[s] : '#ccc'); r.setAttribute('stroke-width', '0.5') }
-          var title = document.createElementNS(ns, 'title'); title.textContent = celToKm(c) + ' — ' + NOMES[s] + (temProj ? (svConcGrafCel(s, c) ? ' (concluída)' : ' (pendente)') : ' (sem projeto)'); r.appendChild(title);
+          var title = document.createElementNS(ns, 'title'); title.textContent = tipRange + ' | ' + NOMES[s] + (temProj ? (svConcGrafCel(s, c) ? ' ✓ concluída' : ' — pendente') : ' — sem projeto'); r.appendChild(title);
           svg.appendChild(r);
         }
       });
@@ -1655,13 +1683,16 @@
         var sep3 = document.createElementNS(ns, 'line'); sep3.setAttribute('x1', L - 10); sep3.setAttribute('y1', TERRA_START - 5); sep3.setAttribute('x2', W - 4); sep3.setAttribute('y2', TERRA_START - 5); sep3.setAttribute('stroke', '#ddd'); sep3.setAttribute('stroke-width', '0.5'); svg.appendChild(sep3);
         var lt = document.createElementNS(ns, 'text'); lt.setAttribute('x', L - 8); lt.setAttribute('y', TERRA_START + CH / 2 + 4); lt.setAttribute('text-anchor', 'end'); lt.setAttribute('font-size', '10'); lt.setAttribute('fill', '#555'); lt.setAttribute('font-weight', '600'); lt.textContent = 'Terraplan.'; svg.appendChild(lt);
         for (var c = celIni; c <= celFim; c++) {
-          var gs2 = c * CELULA_ESTACAS; var n = camadasProj(gs2, 'terra'), fe = camExecGrafCel(c, 'terra');
+          var gs2 = c * CELULA_ESTACAS;
+          var gsEnd2 = Math.min(gs2 + CELULA_ESTACAS - 1, APP.obraAtual.EstacaFinal || 99999);
+          var tipRange2 = 'E.' + gs2 + ' a E.' + gsEnd2;
+          var n = camadasProj(gs2, 'terra'), fe = camExecGrafCel(c, 'terra');
           for (var cam = 1; cam <= mxT; cam++) {
             var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', L + (c - celIni) * CW); r.setAttribute('y', TERRA_START + (cam - 1) * (CH + G)); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
             if (cam > n) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.3'); r.setAttribute('stroke-dasharray', '2,2') }
             else {
               var feita = (n - cam + 1) <= fe; r.setAttribute('fill', feita ? CORES.terra : '#f0f0f0'); r.setAttribute('stroke', feita ? CORES.terra : '#ccc'); r.setAttribute('stroke-width', '0.5');
-              var title2 = document.createElementNS(ns, 'title'); title2.textContent = celToKm(c) + ' — Terraplanagem camada ' + (n - cam + 1) + '/' + n + (feita ? ' (executada)' : ' (pendente)'); r.appendChild(title2);
+              var title2 = document.createElementNS(ns, 'title'); title2.textContent = tipRange2 + ' | Terraplanagem c.' + (n - cam + 1) + '/' + n + (feita ? ' ✓ executada' : ' — pendente'); r.appendChild(title2);
             }
             svg.appendChild(r);
           }
@@ -1704,12 +1735,12 @@
       renderResumoSemanal(fSemana, l);
 
       if (l.length === 0) { d.innerHTML = '<div style="color:#999;padding:20px;text-align:center">Nenhum registro encontrado.</div>'; return }
-      var h = '<div style="overflow-x:auto"><table><thead><tr><th style="width:30px"><input type="checkbox" id="h-check-all" onchange="toggleAllHist(this.checked)"></th><th>Data</th><th>Célula (km)</th><th>Estaca</th><th>Serviço</th><th>Camadas</th><th>Responsável</th><th>Obs</th><th></th></tr></thead><tbody>';
+      var h = '<div style="overflow-x:auto"><table><thead><tr><th style="width:30px"><input type="checkbox" id="h-check-all" onchange="toggleAllHist(this.checked)"></th><th>Data</th><th>Posição (km)</th><th>Estaca</th><th>Serviço</th><th>Camadas</th><th>Responsável</th><th>Obs</th><th></th></tr></thead><tbody>';
       l.forEach(function (r) {
         var dt = (r.DataExecucao || '').substring(0, 10).split('-').reverse().join('/');
-        var gs = normalizarEstaca(r.Estaca || 0);
-        var kmLabel = estakaParaKm(gs) + ' – ' + estakaParaKm(gs + CELULA_ESTACAS);
-        h += '<tr><td><input type="checkbox" class="h-check" value="' + r.Id + '"></td><td>' + dt + '</td><td style="font-family:\'Barlow Condensed\',sans-serif;font-weight:600;font-size:12px;color:#0078d4">' + kmLabel + '</td><td>E.' + gs + '</td><td><span class="badge badge-' + r.Servico + '">' + (NOMES[r.Servico] || r.Servico) + '</span></td><td>' + (r.NumCamadasExecutadas || 1) + '</td><td>' + (r.Responsavel || '-') + '</td><td>' + (r.Observacao || '-') + '</td><td><button class="secondary" style="color:#a8071a;font-size:11px;padding:4px 8px" onclick="excluirExecucao(' + r.Id + ')">Excluir</button></td></tr>';
+        var est = r.Estaca || 0;
+        var kmLabel = estakaParaKm(est);
+        h += '<tr><td><input type="checkbox" class="h-check" value="' + r.Id + '"></td><td>' + dt + '</td><td style="font-family:\'Barlow Condensed\',sans-serif;font-weight:600;font-size:12px;color:#0078d4">' + kmLabel + '</td><td>E.' + est + '</td><td><span class="badge badge-' + r.Servico + '">' + (NOMES[r.Servico] || r.Servico) + '</span></td><td>' + (r.NumCamadasExecutadas || 1) + '</td><td>' + (r.Responsavel || '-') + '</td><td>' + (r.Observacao || '-') + '</td><td><button class="secondary" style="color:#a8071a;font-size:11px;padding:4px 8px" onclick="excluirExecucao(' + r.Id + ')">Excluir</button></td></tr>';
       });
       h += '</tbody></table></div>'; d.innerHTML = h;
     }
@@ -1719,15 +1750,15 @@
       if (!semana || !execSemana || execSemana.length === 0) { box.innerHTML = ''; return }
       var porServico = {};
       execSemana.forEach(function (x) {
-        if (!porServico[x.Servico]) porServico[x.Servico] = { celulas: new Set(), camadas: 0 };
-        porServico[x.Servico].celulas.add(normalizarEstaca(x.Estaca || 0));
+        if (!porServico[x.Servico]) porServico[x.Servico] = { estacas: new Set(), camadas: 0 };
+        porServico[x.Servico].estacas.add(x.Estaca || 0);
         porServico[x.Servico].camadas += (x.NumCamadasExecutadas || 1);
       });
       var html = '<div class="weekly-box"><div class="card-title">Resumo da semana selecionada</div><div class="grid-stats">';
       Object.keys(porServico).forEach(function (sv) {
-        var cells = porServico[sv].celulas.size;
-        var metros = cells * CELULA_ESTACAS * 20;
-        html += '<div class="stat-card" style="border-left-color:' + (CORES[sv] || '#ddd') + '"><div class="stat-label">' + (NOMES[sv] || sv) + '</div><div class="stat-value" style="color:' + (CORES[sv] || '#333') + '">' + (metros >= 1000 ? (metros / 1000).toFixed(1) + ' km' : metros + ' m') + '</div><div style="font-size:11px;color:#999">' + cells + ' célula(s)</div></div>';
+        var stakes = porServico[sv].estacas.size;
+        var metros = stakes * 20;
+        html += '<div class="stat-card" style="border-left-color:' + (CORES[sv] || '#ddd') + '"><div class="stat-label">' + (NOMES[sv] || sv) + '</div><div class="stat-value" style="color:' + (CORES[sv] || '#333') + '">' + (metros >= 1000 ? (metros / 1000).toFixed(1) + ' km' : metros + ' m') + '</div><div style="font-size:11px;color:#999">' + stakes + ' estaca(s)</div></div>';
       });
       html += '</div></div>';
       box.innerHTML = html;
@@ -1861,14 +1892,15 @@
         var v = parseInt(inp.value);
         if (!isNaN(v)) hint.textContent = estakaParaKm(v); else hint.textContent = '';
       });
-      // r-est-fim: mostra o limite final da última célula (gsFim + 5 estacas)
+      // r-est-fim: mostra quantidade de estacas e metragem
       var fimEl = document.getElementById('r-est-fim'), fimHint = document.getElementById('r-est-fim-km');
       if (fimEl && fimHint) {
         var vFim = parseInt(fimEl.value);
+        var vIni = parseInt(document.getElementById('r-est').value);
         if (!isNaN(vFim)) {
-          var gsFim = normalizarEstaca(vFim);
-          var numCelH = (gsFim - normalizarEstaca(parseInt(document.getElementById('r-est').value) || 0)) / CELULA_ESTACAS + 1;
-          fimHint.textContent = '→ até ' + estakaParaKm(gsFim + CELULA_ESTACAS) + ' (' + numCelH + ' célula(s) = ' + numCelH * 100 + 'm)';
+          var numEstH = (!isNaN(vIni) ? vFim - vIni + 1 : 1);
+          var metrosH = numEstH * 20;
+          fimHint.textContent = '→ ' + numEstH + ' estaca(s) = ' + (metrosH >= 1000 ? (metrosH / 1000).toFixed(2) + ' km' : metrosH + 'm');
         } else fimHint.textContent = '';
       }
     }
@@ -1880,20 +1912,51 @@
       var d = document.getElementById('proj-lista'), fS = document.getElementById('pf-serv').value;
       var lista = APP.projeto.slice();
       if (fS) lista = lista.filter(function (x) { return x.Servico === fS });
-      if (lista.length === 0) { d.innerHTML = '<div style="color:#999;padding:20px;text-align:center">Nenhuma célula cadastrada.</div>'; return }
-      lista.sort(function (a, b) { return a.Estaca - b.Estaca });
-      var h = '<div style="overflow-x:auto"><table><thead><tr><th>Trecho (100m)</th><th>Estaca</th><th>Serviço</th><th>Camadas Proj.</th><th>Executadas</th><th>%</th><th></th></tr></thead><tbody>';
-      lista.forEach(function (p) {
-        var f = camadasExec(p.Estaca, p.Servico), pc = p.NumCamadas > 0 ? Math.round(f / p.NumCamadas * 100) : 0;
-        var kmStr = estakaParaKm(p.Estaca) + ' – ' + estakaParaKm(p.Estaca + CELULA_ESTACAS);
-        h += '<tr><td style="font-family:\'Barlow Condensed\',sans-serif;font-weight:600;font-size:12px;color:#0078d4">' + kmStr + '</td><td>E.' + p.Estaca + '</td><td><span class="badge badge-' + p.Servico + '">' + NOMES[p.Servico] + '</span></td><td>' + p.NumCamadas + '</td><td>' + f + '</td><td>' + pc + '%</td><td><button class="secondary" style="color:#a8071a;font-size:11px;padding:4px 8px" onclick="excluirEstaca(' + p.Id + ')">Excluir</button></td></tr>';
+      if (lista.length === 0) { d.innerHTML = '<div style="color:#999;padding:20px;text-align:center">Nenhuma estaca cadastrada.</div>'; return }
+      // Group consecutive stakes with same service + numCamadas
+      var byService = {};
+      lista.forEach(function(p) { if (!byService[p.Servico]) byService[p.Servico] = []; byService[p.Servico].push(p); });
+      var groups = [];
+      Object.keys(byService).sort().forEach(function(sv) {
+        var rows = byService[sv].slice().sort(function(a, b) { return a.Estaca - b.Estaca; });
+        rows.forEach(function(p) {
+          var last = groups[groups.length - 1];
+          if (last && last.sv === sv && last.cam === p.NumCamadas && last.fim === p.Estaca - 1) {
+            last.fim = p.Estaca; last.ids.push(p.Id);
+          } else { groups.push({ sv: sv, cam: p.NumCamadas, ini: p.Estaca, fim: p.Estaca, ids: [p.Id] }); }
+        });
+      });
+      groups.sort(function(a, b) { return a.ini - b.ini || a.sv.localeCompare(b.sv); });
+      var h = '<div style="overflow-x:auto"><table><thead><tr><th>Posição</th><th>Estacas</th><th>Serviço</th><th>Cam. Proj.</th><th>Cam. Exec.</th><th>%</th><th></th></tr></thead><tbody>';
+      groups.forEach(function(g) {
+        var fPlan = 0, fExec = 0;
+        for (var e = g.ini; e <= g.fim; e++) { fPlan += g.cam; fExec += Math.min(camadasExecEst(e, g.sv), g.cam); }
+        var pc = fPlan > 0 ? Math.round(fExec / fPlan * 100) : 0;
+        var numEst = g.fim - g.ini + 1;
+        var kmStr = estakaParaKm(g.ini) + (g.ini !== g.fim ? ' – ' + estakaParaKm(g.fim) : '');
+        var estStr = g.ini === g.fim ? 'E.' + g.ini : 'E.' + g.ini + ' a E.' + g.fim + ' (' + numEst + ')';
+        h += '<tr><td style="font-family:\'Barlow Condensed\',sans-serif;font-weight:600;font-size:12px;color:#0078d4">' + kmStr + '</td>';
+        h += '<td>' + estStr + '</td>';
+        h += '<td><span class="badge badge-' + g.sv + '">' + NOMES[g.sv] + '</span></td>';
+        h += '<td>' + g.cam + '</td><td>' + fExec + '/' + fPlan + '</td><td>' + pc + '%</td>';
+        h += '<td><button class="secondary" style="color:#a8071a;font-size:11px;padding:4px 8px" onclick="excluirGrupoEstacas([' + g.ids.join(',') + '])">Excluir</button></td></tr>';
       });
       h += '</tbody></table></div>'; d.innerHTML = h;
     }
 
     async function excluirEstaca(itemId) {
-      if (!confirm('Excluir esta célula do projeto?')) return;
+      if (!confirm('Excluir esta estaca do projeto?')) return;
       try { await SP.deletarItem(LISTA_PROJETO, itemId); await carregarDadosObra(); renderProjeto() } catch (e) { alert('Erro: ' + e.message) }
+    }
+
+    async function excluirGrupoEstacas(ids) {
+      if (!confirm('Excluir ' + ids.length + ' estaca(s) do projeto?')) return;
+      try {
+        for (var i = 0; i < ids.length; i += 5) {
+          await Promise.all(ids.slice(i, i + 5).map(function(id) { return SP.deletarItem(LISTA_PROJETO, id); }));
+        }
+        await carregarDadosObra(); renderProjeto();
+      } catch (e) { alert('Erro: ' + e.message) }
     }
 
     /* =================================================================
@@ -1981,19 +2044,16 @@
       atualizarKmHints();
       info.className = 'info-box';
       if (isNaN(estIni) || !sv) { info.textContent = 'Informe a estaca e o serviço.'; return }
-      var gsIni = normalizarEstaca(estIni);
-      var gsFim = isNaN(estFim) ? gsIni : normalizarEstaca(estFim);
-      if (gsFim < gsIni) gsFim = gsIni;
-      var numCel = (gsFim - gsIni) / CELULA_ESTACAS + 1;
+      var eFim = isNaN(estFim) ? estIni : Math.max(estIni, estFim);
+      var numEst = eFim - estIni + 1;
       var semProj = 0;
-      for (var e = gsIni; e <= gsFim; e += CELULA_ESTACAS) { if (camadasProj(e, sv) === 0) semProj++ }
-      if (semProj === numCel) { info.className = 'info-box block'; info.innerHTML = '<strong>Trecho ' + estakaParaKm(gsIni) + ' a ' + estakaParaKm(gsFim + CELULA_ESTACAS) + ':</strong> ' + NOMES[sv] + ' não cadastrado nestas células.'; ci.disabled = true; return }
+      for (var e = estIni; e <= eFim; e++) { if (camadasProjEst(e, sv) === 0) semProj++; }
+      if (semProj === numEst) { info.className = 'info-box block'; info.innerHTML = '<strong>E.' + estIni + ' a E.' + eFim + ':</strong> ' + NOMES[sv] + ' não cadastrado nestas estacas.'; ci.disabled = true; return }
       ci.disabled = false;
-      var pre = preReqOK(sv, gsIni);
+      var pre = preReqOK(sv, estIni);
       if (!pre.ok) { info.className = 'info-box block'; info.innerHTML = '<strong>Atenção:</strong> ' + pre.falta + ' não concluída em parte do trecho. O registro só será feito onde o pré-requisito estiver OK.' }
       else {
-        var km1 = estakaParaKm(gsIni), km2 = estakaParaKm(gsFim + CELULA_ESTACAS);
-        info.innerHTML = '<strong>' + km1 + ' a ' + km2 + ' — ' + NOMES[sv] + ':</strong> ' + numCel + ' célula(s) = ' + numCel * 100 + 'm' + (semProj > 0 ? ' (' + semProj + ' sem projeto)' : '') + '.';
+        info.innerHTML = '<strong>E.' + estIni + ' a E.' + eFim + ' — ' + NOMES[sv] + ':</strong> ' + numEst + ' estaca(s)' + (semProj > 0 ? ' (' + semProj + ' sem projeto)' : '') + '.';
       }
     }
 
@@ -2010,18 +2070,16 @@
       document.getElementById('g-data-limpar').onclick = function () { document.getElementById('g-data-ini').value = ''; document.getElementById('g-data-fim').value = ''; renderGraficoFaixas() };
       document.getElementById('btn-debug').onclick = function () { debugVisible = !debugVisible; if (!debugVisible) document.getElementById('debug-area').innerHTML = ''; else renderDebug() };
 
-      // Estaca início — habilita e configura estaca fim ao digitar
+      // Estaca início — habilita estaca fim ao digitar
       document.getElementById('r-est').oninput = function () {
         var estIni = parseInt(this.value);
         var fim = document.getElementById('r-est-fim');
         var fimKm = document.getElementById('r-est-fim-km');
-        if (!isNaN(estIni) && estIni >= 0 && estIni % CELULA_ESTACAS === 0) {
+        if (!isNaN(estIni) && estIni >= 0) {
           fim.disabled = false;
-          var minFim = estIni + CELULA_ESTACAS - 1; // primeiro fim válido: início+4
-          fim.min = minFim;
-          fim.step = CELULA_ESTACAS; // passo de 5: 4, 9, 14, 19...
-          // só redefine o valor se estiver vazio ou menor que o mínimo
-          if (!fim.value || parseInt(fim.value) < minFim) { fim.value = minFim; }
+          fim.min = estIni;
+          fim.step = 1;
+          if (!fim.value || parseInt(fim.value) < estIni) { fim.value = estIni; }
         } else {
           fim.disabled = true; fim.value = ''; fimKm.textContent = '';
         }
@@ -2070,22 +2128,18 @@
         if (!podeRegistrar()) { msg.innerHTML = '<div class="alert alert-err">Sem permissão.</div>'; return }
         if (!data) { msg.innerHTML = '<div class="alert alert-err">Informe a data.</div>'; return }
         if (isNaN(estIni)) { msg.innerHTML = '<div class="alert alert-err">Informe a estaca início.</div>'; return }
-        if (isNaN(estFim) || estFim < estIni + CELULA_ESTACAS - 1) { msg.innerHTML = '<div class="alert alert-err">Informe a estaca fim (mín. início+' + (CELULA_ESTACAS - 1) + ' = ' + (estIni + CELULA_ESTACAS - 1) + ').</div>'; return }
-        if ((estFim - estIni + 1) % CELULA_ESTACAS !== 0) { msg.innerHTML = '<div class="alert alert-err">Estaca fim inválida. Para início=' + estIni + ' os valores válidos são: ' + (estIni + CELULA_ESTACAS - 1) + ', ' + (estIni + 2 * CELULA_ESTACAS - 1) + ', ' + (estIni + 3 * CELULA_ESTACAS - 1) + '... (incrementos de ' + CELULA_ESTACAS + ').</div>'; return }
-        var gsIni = normalizarEstaca(estIni);
-        var gsFim = normalizarEstaca(estFim);
-        if (gsFim < gsIni) { msg.innerHTML = '<div class="alert alert-err">Estaca fim menor que início.</div>'; return }
+        if (isNaN(estFim) || estFim < estIni) estFim = estIni;
         if (!sv) { msg.innerHTML = '<div class="alert alert-err">Selecione o serviço.</div>'; return }
         var btn = document.getElementById('btn-reg'); btn.disabled = true; btn.textContent = 'Salvando...';
         var ok = 0, pulos = 0, bloqs = 0;
-        var totalCel = (gsFim - gsIni) / CELULA_ESTACAS + 1;
+        var totalEst = estFim - estIni + 1;
         try {
-          for (var e = gsIni; e <= gsFim; e += CELULA_ESTACAS * 5) {
+          for (var e = estIni; e <= estFim; e += 5) {
             var lote = [];
-            for (var j = e; j <= Math.min(e + CELULA_ESTACAS * 4, gsFim); j += CELULA_ESTACAS) {
-              var n = camadasProj(j, sv);
+            for (var j = e; j <= Math.min(e + 4, estFim); j++) {
+              var n = camadasProjEst(j, sv);
               if (n === 0) { pulos++; continue }
-              var f = camadasExec(j, sv);
+              var f = camadasExecEst(j, sv);
               if (f >= n) { pulos++; continue }
               var pre = preReqOK(sv, j);
               if (!pre.ok) { bloqs++; continue }
@@ -2094,14 +2148,13 @@
               ok++;
             }
             if (lote.length > 0) await Promise.all(lote);
-            var prog = Math.min(e + CELULA_ESTACAS * 5, gsFim + 1);
-            msg.innerHTML = '<div class="alert alert-warn">Registrando... ' + Math.round((prog - gsIni) / CELULA_ESTACAS) + ' de ' + totalCel + ' células.</div>';
-            if (e + CELULA_ESTACAS * 5 <= gsFim) await new Promise(function (r) { setTimeout(r, 500) });
+            msg.innerHTML = '<div class="alert alert-warn">Registrando E.' + e + ' a E.' + Math.min(e + 4, estFim) + '…</div>';
+            if (e + 5 <= estFim) await new Promise(function (r) { setTimeout(r, 500) });
           }
           await carregarDadosObra();
-          var resumo = '<div class="alert alert-ok">✓ <strong>' + ok + '</strong> célula(s) registrada(s) com sucesso.';
-          if (pulos > 0) resumo += '<br>' + pulos + ' célula(s) ignorada(s) (sem projeto ou já concluída).';
-          if (bloqs > 0) resumo += '<br>' + bloqs + ' célula(s) bloqueada(s) (pré-requisito não cumprido).';
+          var resumo = '<div class="alert alert-ok">✓ <strong>' + ok + '</strong> estaca(s) registrada(s).';
+          if (pulos > 0) resumo += '<br>' + pulos + ' ignorada(s) (sem projeto ou já concluída).';
+          if (bloqs > 0) resumo += '<br>' + bloqs + ' bloqueada(s) (pré-requisito não cumprido).';
           resumo += '</div>';
           msg.innerHTML = resumo;
           document.getElementById('r-obs').value = '';
@@ -2114,8 +2167,8 @@
       document.getElementById('btn-proj').onclick = async function () {
         var checkeds = Array.from(document.querySelectorAll('#p-servicos-check input[type=checkbox]:checked'));
         var servsSel = checkeds.map(function (c) { return c.value });
-        var ini = normalizarEstaca(parseInt(document.getElementById('p-ini').value));
-        var fim = normalizarEstaca(parseInt(document.getElementById('p-fim').value));
+        var ini = parseInt(document.getElementById('p-ini').value);
+        var fim = parseInt(document.getElementById('p-fim').value);
         var cam = parseInt(document.getElementById('p-cam').value);
         var pm = document.getElementById('p-msg');
         if (servsSel.length === 0) { pm.innerHTML = '<div class="alert alert-err">Selecione ao menos um serviço.</div>'; return }
@@ -2142,7 +2195,7 @@
         }
         await carregarDadosObra(); renderProjeto();
         if (erros.length === 0) {
-          pm.innerHTML = '<div class="alert alert-ok">✓ Salvo com sucesso — ' + sucessos.join(', ') + ' | ' + estakaParaKm(ini) + ' a ' + estakaParaKm(fim + CELULA_ESTACAS) + ' com ' + cam + ' camada(s).</div>';
+          pm.innerHTML = '<div class="alert alert-ok">✓ Salvo — ' + sucessos.join(', ') + ' | E.' + ini + ' a E.' + fim + ' (' + estakaParaKm(ini) + ' a ' + estakaParaKm(fim) + ') — ' + cam + ' camada(s).</div>';
         } else {
           pm.innerHTML = (sucessos.length ? '<div class="alert alert-ok">✓ ' + sucessos.join(', ') + ' salvos.</div>' : '') +
             '<div class="alert alert-err">Erros: ' + erros.join(' | ') + '</div>';
@@ -2174,10 +2227,10 @@
       document.getElementById('btn-exportar').onclick = function () {
         var l = APP.execucao.slice().sort(function (a, b) { return (a.DataExecucao || '').localeCompare(b.DataExecucao || '') });
         if (l.length === 0) { alert('Nada para exportar.'); return }
-        var csv = 'Data;Trecho(km);Estaca;Servico;NumCamadas;Responsavel;Observacao\n';
+        var csv = 'Data;Posicao(km);Estaca;Servico;NumCamadas;Responsavel;Observacao\n';
         l.forEach(function (r) {
-          var gs = normalizarEstaca(r.Estaca || 0);
-          csv += (r.DataExecucao || '').substring(0, 10) + ';' + estakaParaKm(gs) + ' - ' + estakaParaKm(gs + CELULA_ESTACAS) + ';E.' + gs + ';' + (NOMES[r.Servico] || r.Servico) + ';' + (r.NumCamadasExecutadas || 1) + ';' + (r.Responsavel || '') + ';' + ((r.Observacao || '').replace(/;/g, ',')) + '\n';
+          var est = r.Estaca || 0;
+          csv += (r.DataExecucao || '').substring(0, 10) + ';' + estakaParaKm(est) + ';E.' + est + ';' + (NOMES[r.Servico] || r.Servico) + ';' + (r.NumCamadasExecutadas || 1) + ';' + (r.Responsavel || '') + ';' + ((r.Observacao || '').replace(/;/g, ',')) + '\n';
         });
         var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), url = URL.createObjectURL(blob), a = document.createElement('a');
         a.href = url; a.download = 'execucao_' + ((APP.obraAtual || {}).Title || 'obra') + '_' + new Date().toISOString().slice(0, 10) + '.csv'; a.click(); URL.revokeObjectURL(url);
