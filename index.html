@@ -496,6 +496,11 @@
     .diario-cel-bottom{display:flex;gap:5px;align-items:center;justify-content:center}
     .diario-dot{width:10px;height:10px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);display:inline-block;flex-shrink:0}
     .diario-dot-sol{font-size:13px;line-height:1}
+    .diario-interc-badge{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);font-size:8px;font-weight:700;color:#fff;flex-shrink:0;line-height:1}
+    .diario-readonly-banner{background:#fff3cd;border:1px solid #ffe082;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#7c5a00;display:flex;align-items:center;gap:8px}
+    .diario-retroativo-banner{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#1b5e20;display:flex;align-items:center;gap:8px}
+    .diario-interc-row{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f5f5f5;border-radius:6px;margin-bottom:5px;font-size:12px}
+    .diario-interc-row.ativa{background:#fff5f5;border:1px solid #ffcdd2}
     #diario-tooltip{position:fixed;background:#1c2333;color:#e8eef8;border-radius:10px;padding:11px 14px;font-size:12px;line-height:1.65;max-width:250px;box-shadow:0 8px 28px rgba(0,0,0,.4);pointer-events:none;z-index:9999;display:none;border:1px solid rgba(255,255,255,.1)}
     #diario-tooltip .tt-date{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:#7ec8f8;margin-bottom:7px;border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:6px}
     #diario-tooltip .tt-row{display:flex;align-items:flex-start;gap:5px;font-size:11px;margin-bottom:2px}
@@ -813,12 +818,14 @@
     <div class="painel-obras-header">
       <h1>🏗 Acompanhamento de Obras — Pavimentação</h1>
       <div style="display:flex;align-items:center;gap:12px">
+        <button id="painel-btn-config" onclick="togglePainelConfig()" style="display:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer">⚙ Configurações</button>
         <span id="painel-user-info" style="font-size:13px;opacity:.85"></span>
         <button onclick="logoutApp()" style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer">Sair</button>
       </div>
     </div>
     <div class="painel-obras-body">
-      <div class="painel-obras-title">Selecione a obra</div>
+      <div id="painel-config" style="display:none;margin-bottom:24px"></div>
+      <div class="painel-obras-title" id="painel-obras-title-label">Selecione a obra</div>
       <div id="painel-obras-grid" class="obras-grid">
         <div style="color:#aaa;grid-column:1/-1;text-align:center;padding:40px">Carregando obras...</div>
       </div>
@@ -889,8 +896,9 @@
                 <span style="color:#ccc">|</span>
                 <span style="font-size:10px">☀ Claro &nbsp;🌧 Chuva</span>
                 <span style="color:#ccc">|</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:8px;height:8px;border-radius:50%;background:#E65100;display:inline-block"></span>Equip.</span>
-                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:8px;height:8px;border-radius:50%;background:#F9A825;display:inline-block"></span>Material</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:50%;background:#7B1A1A;display:inline-block;border:1px solid #ddd"></span>Equip.</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:50%;background:#5D4037;display:inline-block;border:1px solid #ddd"></span>Material</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:10px;height:10px;border-radius:50%;background:#37474F;display:inline-block;border:1px solid #ddd"></span>Outros</span>
                 <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="font-size:9px">📋</span>Solicitação</span>
               </div>
             </div>
@@ -1106,7 +1114,8 @@
     // Valores padrão — substituídos ao carregar da lista "Configuracoes" no SharePoint
     var CONFIG = {
       adminEmails: ['administrador@construtoraalicerceceara.onmicrosoft.com'],
-      direitoriaEmails: ['administrador@construtoraalicerceceara.onmicrosoft.com']
+      direitoriaEmails: ['administrador@construtoraalicerceceara.onmicrosoft.com'],
+      diarioRetroativo: {}
     };
     function isAdmin() {
       return CONFIG.adminEmails.some(function(e){ return e.toLowerCase()===(APP.usuario&&APP.usuario.email||'').toLowerCase(); });
@@ -1131,6 +1140,9 @@
     var LISTA_EVENTOS = 'Eventos';
     var LISTA_DIARIO = 'Diario';
     var LISTA_DIARIO_EQ = 'DiarioEquipamentos';
+    var LISTA_INTERCORRENCIAS = 'IntercorrenciasDiario';
+    var NOMES_INTERC = { equip: 'Equipamento parado', material: 'Falta Material', outros: 'Outros' };
+    var CORES_INTERC = { equip: '#7B1A1A', material: '#5D4037', outros: '#37474F' };
 
     // Estado do calendário do Diário
     var mesDiario = new Date().getMonth();
@@ -1277,13 +1289,18 @@
       },
       async listarAnexos(lista, itemId) { return SP.listarAnexos(lista, itemId) },
       async uploadAnexo(lista, itemId, fileName, buffer) { return SP.uploadAnexo(lista, itemId, fileName, buffer) },
-      async deletarAnexo(lista, itemId, fileName) { return SP.deletarAnexo(lista, itemId, fileName) }
+      async deletarAnexo(lista, itemId, fileName) { return SP.deletarAnexo(lista, itemId, fileName) },
+      async listarIntercorrencias(obraId) { return SP.listarItens(LISTA_INTERCORRENCIAS, 'ObraId eq ' + obraId) },
+      async criarIntercorrencia(obraId, tipo, descricao, dataInicio) {
+        return SP.criarItem(LISTA_INTERCORRENCIAS, { Title: obraId+'-'+tipo+'-'+dataInicio, ObraId: obraId, TipoInterc: tipo, Descricao: descricao || '', DataInicio: dataInicio });
+      },
+      async resolverIntercorrencia(id, dataFim) { return SP.atualizarItem(LISTA_INTERCORRENCIAS, id, { DataFim: dataFim }) }
     };
 
     /* =================================================================
        ESTADO
        ================================================================= */
-    var APP = { usuario: null, obras: [], obraAtual: null, projeto: [], execucao: [], eventos: [], servicosObra: [] };
+    var APP = { usuario: null, obras: [], obraAtual: null, projeto: [], execucao: [], eventos: [], servicosObra: [], intercorrencias: [] };
 
     /* =================================================================
        HELPERS — CONVERSÃO KM/ESTACA
@@ -1359,6 +1376,23 @@
         if (!servConcluido(servicos[i], est)) return { ok: false, falta: NOMES[servicos[i]] };
       }
       return { ok: true };
+    }
+
+    function verificarAutorizacaoRetroativa(obraId, email, dataStr) {
+      if (!obraId || !email) return false;
+      var raw = (CONFIG.diarioRetroativo || {})[String(obraId)] || '';
+      return raw.split(';').map(function(s){return s.trim();}).filter(Boolean).some(function(e) {
+        var p = e.split(':'); return p[0].trim().toLowerCase() === email.toLowerCase() && p[1] && p[1].trim() === dataStr;
+      });
+    }
+    async function consumirAutorizacaoRetroativa(obraId, email, dataStr) {
+      var raw = (CONFIG.diarioRetroativo || {})[String(obraId)] || '';
+      var novas = raw.split(';').map(function(s){return s.trim();}).filter(Boolean).filter(function(e) {
+        var p = e.split(':'); return !(p[0].trim().toLowerCase() === email.toLowerCase() && p[1] && p[1].trim() === dataStr);
+      });
+      var novoValor = novas.join(';');
+      CONFIG.diarioRetroativo[String(obraId)] = novoValor;
+      await salvarConfigItem('DiarioRetroativo_' + obraId, novoValor);
     }
 
     function podeRegistrar() {
@@ -2289,14 +2323,27 @@
       var fichas = {};
       (APP.diario || []).forEach(function(f) { var d=(f.Data||'').substring(0,10); if(d) fichas[d]=f; });
 
-      // Índice de equipamentos quebrados por data
       var eqPorData = {};
       (APP.diarioEq || []).forEach(function(e) { var d=(e.Data||'').substring(0,10); if(d){if(!eqPorData[d])eqPorData[d]=0; eqPorData[d]++;} });
 
-      var cont = {praticavel:0, semi:0, impraticavel:0, fdsReg:0, maqDias:0, matDias:0, solicitacoes:0, dieselTotal:0, dieselEstoque:null};
+      // Pré-calcular intercorrências ativas por data do mês
+      var totalDias = new Date(anoDiario, mesDiario + 1, 0).getDate();
+      var intercPorData = {};
+      (APP.intercorrencias || []).forEach(function(ic) {
+        var ini = (ic.DataInicio || '').substring(0, 10);
+        var fim = (ic.DataFim || '').substring(0, 10);
+        for (var d2 = 1; d2 <= totalDias; d2++) {
+          var ds = anoDiario+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(d2).padStart(2,'0');
+          if (ds >= ini && (!fim || ds <= fim)) {
+            if (!intercPorData[ds]) intercPorData[ds] = {};
+            intercPorData[ds][ic.TipoInterc] = true;
+          }
+        }
+      });
+
+      var cont = {praticavel:0, semi:0, impraticavel:0, fdsReg:0, intercEquip:0, intercMat:0, intercOutros:0, solicitacoes:0, dieselTotal:0, dieselEstoque:null};
       var diasSemana = ['D','S','T','Q','Q','S','S'];
       var primeiroDia = new Date(anoDiario, mesDiario, 1).getDay();
-      var totalDias = new Date(anoDiario, mesDiario + 1, 0).getDate();
 
       var html = '<div class="diario-cal-grid">';
       diasSemana.forEach(function(d) { html += '<div class="diario-cal-header">' + d + '</div>'; });
@@ -2309,8 +2356,8 @@
         var dow = diaDate.getDay(), fds = (dow===0||dow===6), futuro = diaDate > hoje;
         var ficha = fichas[dataStr];
         var temEq = eqPorData[dataStr] > 0;
-        var mat = ficha && (ficha.IntercorrenciaMaterial===true||ficha.IntercorrenciaMaterial==='true'||ficha.IntercorrenciaMaterial===1);
         var temSol = ficha && ficha.SolicitacaoEquipamento && ficha.SolicitacaoEquipamento.trim() !== '';
+        var intercDia = intercPorData[dataStr] || {};
 
         // Contadores
         if (ficha) {
@@ -2319,12 +2366,13 @@
           else if (cM==='impraticavel'&&cT==='impraticavel') cont.impraticavel++;
           else if (cM==='impraticavel'||cT==='impraticavel') cont.semi++;
           else if (cM||cT) cont.praticavel++;
-          if (temEq) cont.maqDias++;
-          if (mat) cont.matDias++;
           if (temSol) cont.solicitacoes++;
           if (ficha.DieselConsumo) cont.dieselTotal += parseFloat(ficha.DieselConsumo)||0;
           if (ficha.DieselEstoque) cont.dieselEstoque = parseFloat(ficha.DieselEstoque)||0;
         }
+        if (intercDia.equip) cont.intercEquip++;
+        if (intercDia.material) cont.intercMat++;
+        if (intercDia.outros) cont.intercOutros++;
 
         // Classe de cor
         var cls;
@@ -2338,17 +2386,16 @@
         }
         if (futuro) cls += ' futuro';
 
-        // Símbolos de clima (manhã | tarde)
         var symM = ficha&&ficha.ClimaManha ? (ficha.ClimaManha==='claro'?'☀':'🌧') : '';
         var symT = ficha&&ficha.ClimaTarde ? (ficha.ClimaTarde==='claro'?'☀':'🌧') : '';
         var symHtml = (symM||symT)
           ? '<span class="diario-cel-sym">'+(symM||'·')+'<span class="diario-cel-sep">|</span>'+(symT||'·')+'</span>'
           : '<span class="diario-cel-sym sem-dados">·|·</span>';
 
-        // Linha de intercorrências na base
         var bottomParts = '';
-        if (temEq)  bottomParts += '<span class="diario-dot" style="background:#E65100"></span>';
-        if (mat)    bottomParts += '<span class="diario-dot" style="background:#F9A825"></span>';
+        if (temEq || intercDia.equip) bottomParts += '<span class="diario-interc-badge" style="background:'+CORES_INTERC.equip+'">E</span>';
+        if (intercDia.material)       bottomParts += '<span class="diario-interc-badge" style="background:'+CORES_INTERC.material+'">M</span>';
+        if (intercDia.outros)         bottomParts += '<span class="diario-interc-badge" style="background:'+CORES_INTERC.outros+'">O</span>';
         if (temSol) bottomParts += '<span class="diario-dot-sol">📋</span>';
         var bottomHtml = bottomParts ? '<div class="diario-cel-bottom">'+bottomParts+'</div>' : '';
 
@@ -2358,7 +2405,6 @@
       html += '</div>';
       calUnico.innerHTML = html;
 
-      // Destacar dia aberto
       var fw = document.getElementById('diario-ficha-wrap');
       var da = fw && fw.dataset.dataAberta;
       if (da) {
@@ -2368,7 +2414,6 @@
         });
       }
 
-      // Painel de resumo
       if (resumoEl) {
         function linhaCont(cor, label, val, circulo) {
           return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">'+
@@ -2383,9 +2428,10 @@
         r += linhaCont('#E65100','Impraticável',cont.impraticavel);
         r += linhaCont('#78909C','FS / Feriado',cont.fdsReg);
         r += '<div style="border-top:1px solid #e0e0e0;margin:10px 0"></div>';
-        r += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">INTERCORRÊNCIAS</div>';
-        r += linhaCont('#E65100','Equip. parado',cont.maqDias,true);
-        r += linhaCont('#F9A825','Ag. material',cont.matDias,true);
+        r += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">INTERCORRÊNCIAS (dias)</div>';
+        r += linhaCont(CORES_INTERC.equip,'Equip. parado',cont.intercEquip,true);
+        r += linhaCont(CORES_INTERC.material,'Falta Material',cont.intercMat,true);
+        r += linhaCont(CORES_INTERC.outros,'Outros',cont.intercOutros,true);
         r += '<div style="border-top:1px solid #e0e0e0;margin:10px 0"></div>';
         r += '<div style="font-size:10px;color:#888;margin-bottom:6px;font-weight:600">DIESEL</div>';
         r += '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px">Consumo total</span><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700">'+cont.dieselTotal.toFixed(0)+' L</span></div>';
@@ -2401,8 +2447,12 @@
       var hoje = new Date(); hoje.setHours(0,0,0,0);
       var hojeStr = hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
       if (dataStr > hojeStr) return;
-      _diarioEqsRemovidos = [];
 
+      var ehHoje = dataStr === hojeStr;
+      var autorizado = ehHoje || verificarAutorizacaoRetroativa(APP.obraAtual && APP.obraAtual.Id, APP.usuario && APP.usuario.email, dataStr);
+      var modoReadOnly = !autorizado;
+
+      _diarioEqsRemovidos = [];
       var fw = document.getElementById('diario-ficha-wrap');
       fw.dataset.dataAberta = dataStr;
       document.querySelectorAll('.diario-cal-cell').forEach(function(el) { el.classList.remove('selected'); });
@@ -2412,20 +2462,89 @@
 
       var ficha = (APP.diario||[]).find(function(f){return (f.Data||'').substring(0,10)===dataStr;});
       var eqsDia = (APP.diarioEq||[]).filter(function(e){return (e.Data||'').substring(0,10)===dataStr;});
+      var intercAtivas = (APP.intercorrencias||[]).filter(function(ic) {
+        var ini = (ic.DataInicio||'').substring(0,10);
+        var fim = (ic.DataFim||'').substring(0,10);
+        return ini <= dataStr && (!fim || fim >= dataStr);
+      });
+
       var d = new Date(dataStr+'T12:00:00');
       var dow = d.getDay(), fds = (dow===0||dow===6);
       var nomeDia = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][dow];
       function dz(n){return String(n).padStart(2,'0');}
       var dtLabel = dz(d.getDate())+'/'+dz(d.getMonth()+1)+'/'+d.getFullYear();
 
+      var modal = document.getElementById('diario-modal');
+      var modalContent = document.getElementById('diario-modal-content');
+      modal.classList.add('open');
+
+      var headerHtml =
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+          '<span style="font-size:15px;font-weight:700;color:#0078d4;font-family:\'Barlow Condensed\',sans-serif">📝 '+nomeDia+', '+dtLabel+'</span>'+
+          '<button onclick="fecharFichaDiario()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;line-height:1">✕</button>'+
+        '</div>';
+
+      if (modoReadOnly) {
+        // ── MODO LEITURA ──
+        var semRegistro = !ficha;
+        var cNomes = {claro:'☀ Claro', chuvoso:'🌧 Chuvoso'};
+        var dNomes = {praticavel:'✓ Praticável', impraticavel:'✕ Impraticável'};
+        var admMsg = isAdmin()
+          ? '<span style="margin-left:8px;font-size:11px">Use Configurações &gt; Autorização retroativa para liberar edição.</span>'
+          : '';
+        var bannerHtml = '<div class="diario-readonly-banner">🔒 Dia anterior — apenas leitura.'+admMsg+'</div>';
+
+        var bodyHtml = '';
+        if (semRegistro) {
+          bodyHtml = '<div style="text-align:center;padding:24px;color:#aaa;font-size:13px">Nenhum registro para este dia.</div>';
+        } else {
+          function rowRo(label, val) { return val ? '<div style="display:flex;gap:8px;margin-bottom:5px;font-size:12px"><span style="min-width:90px;color:#888">'+label+'</span><span>'+val+'</span></div>' : ''; }
+          bodyHtml += rowRo('Manhã:', (cNomes[ficha.ClimaManha]||'')+(ficha.CondicaoManha?' — '+(dNomes[ficha.CondicaoManha]||ficha.CondicaoManha):''));
+          bodyHtml += rowRo('Tarde:', (cNomes[ficha.ClimaTarde]||'')+(ficha.CondicaoTarde?' — '+(dNomes[ficha.CondicaoTarde]||ficha.CondicaoTarde):''));
+          if (ficha.AtividadesRealizadas) bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Atividades</div><div style="font-size:12px;white-space:pre-wrap">'+ficha.AtividadesRealizadas+'</div>';
+          if (ficha.DieselConsumo||ficha.DieselEstoque) {
+            bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Diesel</div>';
+            bodyHtml += rowRo('Consumo:', ficha.DieselConsumo ? ficha.DieselConsumo+' L' : '');
+            bodyHtml += rowRo('Estoque:', ficha.DieselEstoque ? ficha.DieselEstoque+' L' : '');
+          }
+          if (eqsDia.length) {
+            bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Equip. com defeito</div>';
+            eqsDia.forEach(function(e){ bodyHtml += '<div style="font-size:12px;margin-bottom:2px">• '+e.Equipamento+(e.Descricao?' — '+e.Descricao:'')+'</div>'; });
+          }
+          if (intercAtivas.length) {
+            bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Intercorrências ativas</div>';
+            intercAtivas.forEach(function(ic){
+              var cor = CORES_INTERC[ic.TipoInterc]||'#555';
+              bodyHtml += '<div style="font-size:12px;margin-bottom:3px;display:flex;align-items:center;gap:6px">'+
+                '<span style="width:8px;height:8px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
+                (NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+
+                (ic.Descricao?' — '+ic.Descricao:'')+
+                ' <small style="color:#aaa">(desde '+((ic.DataInicio||'').substring(0,10).split('-').reverse().join('/'))+')</small>'+
+              '</div>';
+            });
+          }
+          if (ficha.SolicitacaoEquipamento) bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Solicitação</div><div style="font-size:12px">'+ficha.SolicitacaoEquipamento+'</div>';
+          if (ficha.Observacao) bodyHtml += '<div style="margin:8px 0 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase">Observações</div><div style="font-size:12px;white-space:pre-wrap">'+ficha.Observacao+'</div>';
+        }
+
+        modalContent.innerHTML =
+          '<div class="diario-ficha" id="diario-ficha">'+headerHtml+bannerHtml+bodyHtml+'</div>';
+        document.getElementById('diario-modal-inner').scrollTop = 0;
+        _fotosQueue = []; _fotosQueuePreviews = [];
+        return;
+      }
+
+      // ── MODO EDIÇÃO ──
       var cliMa=(ficha&&ficha.ClimaManha)||'', cliTa=(ficha&&ficha.ClimaTarde)||'';
       var conMa=(ficha&&ficha.CondicaoManha)||'', conTa=(ficha&&ficha.CondicaoTarde)||'';
-      var mat = ficha&&(ficha.IntercorrenciaMaterial===true||ficha.IntercorrenciaMaterial==='true'||ficha.IntercorrenciaMaterial===1);
       var diesel = (ficha&&ficha.DieselConsumo)||'', estoque=(ficha&&ficha.DieselEstoque)||'';
       var atividades = (ficha&&ficha.AtividadesRealizadas)||'';
       var solicitacao = (ficha&&ficha.SolicitacaoEquipamento)||'';
       var obs = (ficha&&ficha.Observacao)||'';
 
+      var retBanner = (!ehHoje && autorizado)
+        ? '<div class="diario-retroativo-banner">✏ Edição retroativa autorizada para este dia.</div>'
+        : '';
       var avisoFds = fds ? '<div style="background:#fff8e1;border:1px solid #ffe082;border-radius:4px;padding:6px 10px;font-size:12px;color:#7c5a00;margin-bottom:4px">⚠ '+(dow===0?'Domingo':'Sábado')+' — preencha apenas se houve trabalho.</div>' : '';
 
       function btnsClimaPeriodo(periodo, atual) {
@@ -2444,18 +2563,51 @@
           '<button onclick="removerEqRow(this)" style="background:#fde7e9;border:1px solid #ffa39e;color:#a8071a;border-radius:4px;padding:5px 8px;cursor:pointer;font-size:12px;white-space:nowrap">✕</button>'+
           '</div>';
       }
-
       var eqsHtml = eqsDia.map(function(e){ return eqRowHtml(e.Id, e.Equipamento||'', e.Descricao||''); }).join('');
 
-      var modal = document.getElementById('diario-modal');
-      var modalContent = document.getElementById('diario-modal-content');
-      modal.classList.add('open');
+      // Intercorrências ativas (pode resolver hoje)
+      var intercAtivasHtml = '';
+      if (intercAtivas.length) {
+        intercAtivas.forEach(function(ic) {
+          var cor = CORES_INTERC[ic.TipoInterc]||'#555';
+          var dIni = (ic.DataInicio||'').substring(0,10).split('-').reverse().join('/');
+          intercAtivasHtml +=
+            '<div class="diario-interc-row ativa" data-interc-id="'+ic.Id+'">'+
+              '<span style="width:10px;height:10px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
+              '<span style="flex:1;font-weight:600">'+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+
+                (ic.Descricao?' <span style="font-weight:400;color:#888">— '+ic.Descricao+'</span>':'')+
+                ' <small style="color:#aaa;font-weight:400">(desde '+dIni+')</small></span>'+
+              '<label style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#3A9C4E;cursor:pointer;white-space:nowrap">'+
+                '<input type="checkbox" id="resolver-'+ic.Id+'" style="accent-color:#3A9C4E"> Resolver hoje'+
+              '</label>'+
+            '</div>';
+        });
+      }
+
+      // Novas intercorrências (tipos ainda não ativos hoje)
+      var tiposAtivos = {};
+      intercAtivas.forEach(function(ic){ tiposAtivos[ic.TipoInterc] = true; });
+      var novasIntercHtml = '';
+      Object.keys(NOMES_INTERC).forEach(function(tipo) {
+        if (tiposAtivos[tipo]) return;
+        var cor = CORES_INTERC[tipo]||'#555';
+        novasIntercHtml +=
+          '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin-bottom:5px">'+
+            '<input type="checkbox" class="nova-interc" data-tipo="'+tipo+'" style="accent-color:'+cor+';width:14px;height:14px">'+
+            '<span style="width:8px;height:8px;border-radius:50%;background:'+cor+';display:inline-block;flex-shrink:0"></span>'+
+            NOMES_INTERC[tipo]+
+          '</label>';
+        if (tipo === 'outros') {
+          novasIntercHtml += '<div id="interc-outros-wrap" style="display:none;margin-left:22px;margin-bottom:6px">'+
+            '<input type="text" id="interc-outros-desc" placeholder="Descreva a intercorrência..." style="width:100%;padding:6px 9px;border:1px solid #ccc;border-radius:4px;font-size:12px">'+
+          '</div>';
+        }
+      });
+
       modalContent.innerHTML =
         '<div class="diario-ficha" id="diario-ficha">'+
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
-            '<span style="font-size:15px;font-weight:700;color:#0078d4;font-family:\'Barlow Condensed\',sans-serif">📝 '+nomeDia+', '+dtLabel+'</span>'+
-            '<button onclick="fecharFichaDiario()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#999;line-height:1">✕</button>'+
-          '</div>'+
+          headerHtml+
+          retBanner+
           avisoFds+
 
           '<div class="diario-secao">Condições de Trabalho</div>'+
@@ -2477,7 +2629,7 @@
           '</div>'+
 
           '<div class="diario-secao">Atividades Realizadas</div>'+
-          '<textarea id="diario-atividades" rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Ex: Terraplanagem de 500m no trecho km 3+000. Base concluída entre E.150 e E.200...">'+atividades+'</textarea>'+
+          '<textarea id="diario-atividades" rows="3" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Ex: Terraplanagem de 500m no trecho km 3+000...">'+atividades+'</textarea>'+
 
           '<div class="diario-secao">Diesel</div>'+
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px">'+
@@ -2491,10 +2643,13 @@
           '<div id="diario-eqs-lista">'+eqsHtml+'</div>'+
           '<button onclick="adicionarEqRow()" class="secondary" style="font-size:12px;padding:5px 12px;margin-top:4px">+ Adicionar equipamento</button>'+
 
-          '<div class="diario-secao">Aguardando Material</div>'+
-          '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-bottom:4px">'+
-            '<input type="checkbox" id="diario-mat" style="accent-color:#F9A825;width:15px;height:15px"'+(mat?' checked':'')+'>'+
-            '📦 Há material aguardando entrega</label>'+
+          '<div class="diario-secao">Intercorrências</div>'+
+          (intercAtivas.length
+            ? '<div style="margin-bottom:10px"><div style="font-size:11px;color:#888;margin-bottom:5px">Ativas — marque para resolver hoje:</div>'+intercAtivasHtml+'</div>'
+            : '')+
+          (novasIntercHtml
+            ? '<div><div style="font-size:11px;color:#888;margin-bottom:5px">Registrar nova intercorrência:</div>'+novasIntercHtml+'</div>'
+            : '<div style="font-size:12px;color:#aaa">Todas as intercorrências estão ativas ou nenhuma aplicável.</div>')+
 
           '<div class="diario-secao">Solicitação de Equipamento à Diretoria</div>'+
           '<textarea id="diario-solicitacao" rows="2" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical" placeholder="Descreva o equipamento necessário e a justificativa...">'+solicitacao+'</textarea>'+
@@ -2514,6 +2669,17 @@
           '</div>'+
           '<div id="diario-msg" style="margin-top:8px"></div>'+
         '</div>';
+
+      // Toggle "Outros" textarea visibility
+      var novasChks = modalContent.querySelectorAll('.nova-interc');
+      novasChks.forEach(function(chk) {
+        chk.addEventListener('change', function() {
+          if (chk.dataset.tipo === 'outros') {
+            var wrap = document.getElementById('interc-outros-wrap');
+            if (wrap) wrap.style.display = chk.checked ? 'block' : 'none';
+          }
+        });
+      });
 
       document.getElementById('diario-modal-inner').scrollTop = 0;
       _fotosQueue = []; _fotosQueuePreviews = [];
@@ -2571,7 +2737,6 @@
           ClimaTarde: getPeriodoVal('clima','tarde') || null,
           CondicaoManha: cManha,
           CondicaoTarde: cTarde,
-          IntercorrenciaMaterial: document.getElementById('diario-mat').checked,
           DieselConsumo: parseFloat(document.getElementById('diario-diesel-cons').value)||null,
           DieselEstoque: parseFloat(document.getElementById('diario-diesel-esq').value)||null,
           AtividadesRealizadas: document.getElementById('diario-atividades').value,
@@ -2602,7 +2767,34 @@
           await DataAPI.criarEquipamentoQuebrado(APP.obraAtual.Id, dataStr, novosEqs[j].eq, novosEqs[j].desc, existentes+j+1);
         }
 
-        // Atualiza memória (guarda ID para que notificações possam ser marcadas como lidas)
+        // Resolver intercorrências marcadas
+        var resolverChks = document.querySelectorAll('[id^="resolver-"]:checked');
+        resolverChks.forEach(function(chk) {
+          var icId = parseInt(chk.id.replace('resolver-',''));
+          DataAPI.resolverIntercorrencia(icId, dataStr).catch(function(){});
+          var ic = APP.intercorrencias.find(function(x){return x.Id===icId;});
+          if (ic) ic.DataFim = dataStr;
+        });
+
+        // Criar novas intercorrências
+        var novasChks = document.querySelectorAll('.nova-interc:checked');
+        for (var ni=0; ni<novasChks.length; ni++) {
+          var tipo = novasChks[ni].dataset.tipo;
+          var descEl = tipo==='outros' ? document.getElementById('interc-outros-desc') : null;
+          var desc2 = descEl ? descEl.value.trim() : '';
+          try {
+            var nr = await DataAPI.criarIntercorrencia(APP.obraAtual.Id, tipo, desc2, dataStr);
+            APP.intercorrencias.push({Id: nr && nr.Id, ObraId: APP.obraAtual.Id, TipoInterc: tipo, Descricao: desc2, DataInicio: dataStr, DataFim: null});
+          } catch(e2){}
+        }
+
+        // Consumir autorização retroativa se usada
+        var ehHoje2 = (function(){var h=new Date();h.setHours(0,0,0,0);return dataStr===h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0')+'-'+String(h.getDate()).padStart(2,'0');})();
+        if (!ehHoje2 && verificarAutorizacaoRetroativa(APP.obraAtual.Id, APP.usuario.email, dataStr)) {
+          consumirAutorizacaoRetroativa(APP.obraAtual.Id, APP.usuario.email, dataStr).catch(function(){});
+        }
+
+        // Atualiza memória local
         var idx = (APP.diario||[]).findIndex(function(f){return (f.Data||'').substring(0,10)===dataStr;});
         var nf = Object.assign({Data:dataStr}, campos);
         if (savedId) nf.Id = savedId;
@@ -2612,7 +2804,7 @@
         novosEqs.forEach(function(ne,j){ APP.diarioEq.push({Data:dataStr, Equipamento:ne.eq, Descricao:ne.desc, ObraId:APP.obraAtual.Id}); });
         _diarioEqsRemovidos = [];
 
-        // Upload de fotos na fila (selecionadas antes de salvar)
+        // Upload de fotos na fila
         var fichaIdFinal = savedId || (idx>=0 ? APP.diario[idx].Id : null);
         if (_fotosQueue.length && fichaIdFinal) {
           var queueCopy = _fotosQueue.slice();
@@ -2646,10 +2838,14 @@
       if (cT||dT) rows+='<div class="tt-row"><span class="tt-lbl">Tarde</span><span>'+(cNomes[cT]||'')+(dT?' — '+(dNomes[dT]||dT):'')+'</span></div>';
       var extras = [];
       if (eqCont) extras.push('🔧 '+eqCont+' equip. parado'+(eqCont>1?'s':''));
-      var mat=ficha.IntercorrenciaMaterial===true||ficha.IntercorrenciaMaterial==='true'||ficha.IntercorrenciaMaterial===1;
-      if (mat) extras.push('📦 Aguardando material');
+      var intercAtTip = (APP.intercorrencias||[]).filter(function(ic){
+        var ini=(ic.DataInicio||'').substring(0,10), fim=(ic.DataFim||'').substring(0,10);
+        return ini<=dataStr&&(!fim||fim>=dataStr);
+      });
+      intercAtTip.forEach(function(ic){ extras.push('⚠ '+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+(ic.Descricao?': '+ic.Descricao.substring(0,40):'')); });
       if (ficha.DieselConsumo) extras.push('⛽ '+ficha.DieselConsumo+' L consumidos');
       if (ficha.AtividadesRealizadas&&ficha.AtividadesRealizadas.trim()) extras.push(ficha.AtividadesRealizadas.substring(0,75)+(ficha.AtividadesRealizadas.length>75?'…':''));
+      if (ficha.Observacao&&ficha.Observacao.trim()) extras.push('💬 '+ficha.Observacao.substring(0,60)+(ficha.Observacao.length>60?'…':''));
       if (ficha.SolicitacaoEquipamento&&ficha.SolicitacaoEquipamento.trim()) extras.push('📋 '+ficha.SolicitacaoEquipamento.substring(0,55)+(ficha.SolicitacaoEquipamento.length>55?'…':''));
       if (extras.length&&rows) rows+='<div class="tt-sep"></div>';
       extras.forEach(function(ex){ rows+='<div class="tt-row">'+ex+'</div>'; });
@@ -3179,6 +3375,10 @@
           var vals = (item.Valor||'').split(';').map(function(s){return s.trim();}).filter(Boolean);
           if (item.Title === 'ADMIN_EMAILS' && vals.length) CONFIG.adminEmails = vals;
           if (item.Title === 'DIRETORIA_EMAILS' && vals.length) CONFIG.direitoriaEmails = vals;
+          if (item.Title.indexOf('DiarioRetroativo_') === 0) {
+            var rid = item.Title.replace('DiarioRetroativo_', '');
+            CONFIG.diarioRetroativo[rid] = item.Valor || '';
+          }
         });
       } catch(e) { /* SP list may not exist — use defaults */ }
     }
@@ -3189,8 +3389,19 @@
       return SP.criarItem(LISTA_CONFIG, { Title: chave, Valor: valor });
     }
 
+    function togglePainelConfig() {
+      var el = document.getElementById('painel-config');
+      if (!el) return;
+      if (el.style.display === 'none') {
+        el.style.display = 'block';
+        renderConfiguracoes();
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
     function renderConfiguracoes() {
-      var el = document.getElementById('tab-config');
+      var el = document.getElementById('painel-config') || document.getElementById('tab-config');
       if (!el) return;
       if (!isAdmin()) { el.innerHTML = '<div class="alert alert-err" style="margin-top:16px">Acesso restrito a superadministradores.</div>'; return; }
 
@@ -3239,12 +3450,90 @@
             '<span id="cfg-msg-dir" style="font-size:12px;margin-left:10px"></span>'+
           '</div>'+
 
-          '<div>'+
+          '<div style="margin-bottom:24px">'+
             '<div style="font-size:13px;font-weight:700;color:#222;margin-bottom:4px;padding-bottom:6px;border-bottom:2px solid #f0f0f0">🏗 Acesso por obra</div>'+
             '<p style="font-size:12px;color:#888;margin:6px 0 12px">Defina quais usuários têm acesso a cada obra. Deixar vazio = todos os usuários autenticados têm acesso.</p>'+
             obrasHtml+
           '</div>'+
+
+          '<div>'+
+            '<div style="font-size:13px;font-weight:700;color:#222;margin-bottom:4px;padding-bottom:6px;border-bottom:2px solid #f0f0f0">📅 Autorização retroativa do Diário</div>'+
+            '<p style="font-size:12px;color:#888;margin:6px 0 12px">Permite que um usuário preencha o diário de um dia anterior específico. A autorização é consumida após o primeiro uso.</p>'+
+            '<div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:8px;align-items:end;margin-bottom:12px">'+
+              '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Obra</label>'+
+              '<select id="cfg-retro-obra" style="width:100%;padding:7px 9px;border:1px solid #ccc;border-radius:5px;font-size:13px">'+
+                (APP.obras||[]).map(function(o){return '<option value="'+o.Id+'">'+o.Title+'</option>';}).join('')+
+              '</select></div>'+
+              '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Email do usuário</label>'+
+              '<input type="email" id="cfg-retro-email" placeholder="usuario@empresa.com" style="width:100%;padding:7px 9px;border:1px solid #ccc;border-radius:5px;font-size:13px"></div>'+
+              '<div><label style="font-size:11px;color:#888;display:block;margin-bottom:3px">Data</label>'+
+              '<input type="date" id="cfg-retro-data" style="padding:7px 9px;border:1px solid #ccc;border-radius:5px;font-size:13px"></div>'+
+              '<div style="padding-bottom:1px"><button onclick="autorizarRetroativo()" class="primary" style="font-size:12px;padding:7px 14px;white-space:nowrap">+ Autorizar</button></div>'+
+            '</div>'+
+            '<span id="cfg-msg-retro" style="font-size:12px"></span>'+
+            '<div style="margin-top:12px" id="cfg-retro-lista">'+renderRetroativoLista()+'</div>'+
+          '</div>'+
         '</div>';
+    }
+
+    function renderRetroativoLista() {
+      var html = '';
+      var retro = CONFIG.diarioRetroativo || {};
+      var obraMap = {};
+      (APP.obras||[]).forEach(function(o){obraMap[o.Id]=o.Title;});
+      var temAlgum = false;
+      Object.keys(retro).forEach(function(obraId) {
+        var raw = retro[obraId] || '';
+        var entries = raw.split(';').map(function(s){return s.trim();}).filter(Boolean);
+        if (!entries.length) return;
+        temAlgum = true;
+        var obraNome = obraMap[obraId] || ('Obra #'+obraId);
+        entries.forEach(function(e) {
+          var p = e.split(':');
+          var email = p[0]||'', data = p[1]||'', dtLabel = data.split('-').reverse().join('/');
+          html += '<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:#f5f7fa;border-radius:6px;margin-bottom:4px;font-size:12px">'+
+            '<span style="flex:1"><strong>'+obraNome+'</strong> — '+email+' — '+dtLabel+'</span>'+
+            '<button onclick="revogarRetroativo(\''+obraId+'\',\''+email+'\',\''+data+'\')" style="background:#fde7e9;border:1px solid #ffa39e;color:#a8071a;border-radius:4px;padding:3px 7px;cursor:pointer;font-size:11px">✕ Revogar</button>'+
+          '</div>';
+        });
+      });
+      return temAlgum ? html : '<div style="font-size:12px;color:#aaa">Nenhuma autorização ativa.</div>';
+    }
+
+    async function autorizarRetroativo() {
+      var obraId = document.getElementById('cfg-retro-obra') && document.getElementById('cfg-retro-obra').value;
+      var email = document.getElementById('cfg-retro-email') && document.getElementById('cfg-retro-email').value.trim().toLowerCase();
+      var data = document.getElementById('cfg-retro-data') && document.getElementById('cfg-retro-data').value;
+      var msg = document.getElementById('cfg-msg-retro');
+      if (!obraId || !email || !data) { if(msg){msg.style.color='#E65100';msg.textContent='Preencha todos os campos.';} return; }
+      var raw = (CONFIG.diarioRetroativo[obraId] || '');
+      var entries = raw.split(';').map(function(s){return s.trim();}).filter(Boolean);
+      var jaExiste = entries.some(function(e){var p=e.split(':');return p[0].trim().toLowerCase()===email&&p[1]&&p[1].trim()===data;});
+      if (jaExiste) { if(msg){msg.style.color='#E65100';msg.textContent='Já existe autorização para este usuário/data.';} return; }
+      entries.push(email+':'+data);
+      var novoValor = entries.join(';');
+      if (msg) msg.textContent = 'Salvando...';
+      try {
+        await salvarConfigItem('DiarioRetroativo_'+obraId, novoValor);
+        CONFIG.diarioRetroativo[obraId] = novoValor;
+        if (msg){msg.style.color='#3A9C4E';msg.textContent='✓ Autorizado!';}
+        var lista = document.getElementById('cfg-retro-lista');
+        if (lista) lista.innerHTML = renderRetroativoLista();
+      } catch(e) { if(msg){msg.style.color='#E65100';msg.textContent='Erro: '+e.message;} }
+    }
+
+    async function revogarRetroativo(obraId, email, data) {
+      var raw = CONFIG.diarioRetroativo[obraId] || '';
+      var novas = raw.split(';').map(function(s){return s.trim();}).filter(Boolean).filter(function(e){
+        var p=e.split(':'); return !(p[0].trim().toLowerCase()===email.toLowerCase()&&p[1]&&p[1].trim()===data);
+      });
+      var novoValor = novas.join(';');
+      try {
+        await salvarConfigItem('DiarioRetroativo_'+obraId, novoValor);
+        CONFIG.diarioRetroativo[obraId] = novoValor;
+        var lista = document.getElementById('cfg-retro-lista');
+        if (lista) lista.innerHTML = renderRetroativoLista();
+      } catch(e) { alert('Erro: '+e.message); }
     }
 
     function addCfgEmail(id) {
@@ -3294,7 +3583,8 @@
       dbg('Carregando obra: ' + APP.obraAtual.Title + '...');
       var results = await Promise.all([DataAPI.listarProjeto(APP.obraAtual.Id), DataAPI.listarExecucao(APP.obraAtual.Id), DataAPI.listarEventos(APP.obraAtual.Id), DataAPI.listarDiario(APP.obraAtual.Id), DataAPI.listarDiarioEq(APP.obraAtual.Id)]);
       APP.projeto = results[0]; APP.execucao = results[1]; APP.eventos = results[2]; APP.diario = results[3]; APP.diarioEq = results[4];
-      dbg('Projeto: '+APP.projeto.length+' | Execução: '+APP.execucao.length+' | Eventos: '+APP.eventos.length+' | Diário: '+APP.diario.length+' | DiárioEq: '+APP.diarioEq.length, 'ok');
+      try { APP.intercorrencias = await DataAPI.listarIntercorrencias(APP.obraAtual.Id); } catch(e2) { APP.intercorrencias = []; }
+      dbg('Projeto: '+APP.projeto.length+' | Execução: '+APP.execucao.length+' | Eventos: '+APP.eventos.length+' | Diário: '+APP.diario.length+' | DiárioEq: '+APP.diarioEq.length+' | Interc: '+APP.intercorrencias.length, 'ok');
       popularSelects(); renderStats(); renderLegend(); renderGraficoFaixas(); renderDiario(); renderBadgeNotificacoes();
       if (document.getElementById('tab-historico').style.display !== 'none') renderHistorico();
       if (document.getElementById('tab-projeto').style.display !== 'none') { renderProjeto(); renderServicosObra() }
@@ -3327,6 +3617,10 @@
     function mostrarPainelObras() {
       document.getElementById('app-main').style.display = 'none';
       document.getElementById('painel-obras').style.display = 'block';
+      var cfgBtn = document.getElementById('painel-btn-config');
+      if (cfgBtn) cfgBtn.style.display = isAdmin() ? '' : 'none';
+      var cfgDiv = document.getElementById('painel-config');
+      if (cfgDiv) cfgDiv.style.display = 'none';
       var grid = document.getElementById('painel-obras-grid');
       if (!APP.obras || APP.obras.length === 0) {
         grid.innerHTML = '<div style="color:#999;grid-column:1/-1;text-align:center;padding:60px;font-size:15px">Nenhuma obra disponível para este usuário.</div>';
@@ -3413,8 +3707,6 @@
       sel.value = id;
       var nomeEl = document.getElementById('header-obra-nome');
       if (nomeEl) nomeEl.textContent = APP.obraAtual.Title;
-      var tabCfgBtn = document.getElementById('tab-btn-config');
-      if (tabCfgBtn) tabCfgBtn.style.display = isAdmin() ? '' : 'none';
       document.getElementById('painel-obras').style.display = 'none';
       document.getElementById('app-main').style.display = 'block';
       try {
