@@ -2175,19 +2175,18 @@
         if (isNaN(ini) || isNaN(fim) || ini > fim) { pm.innerHTML = '<div class="alert alert-err">Intervalo inválido.</div>'; return }
         if (isNaN(cam) || cam < 1) { pm.innerHTML = '<div class="alert alert-err">Nº de camadas inválido.</div>'; return }
         var btn = this; btn.disabled = true;
-        var celulas = (fim - ini) / CELULA_ESTACAS + 1;
-        var totalOps = servsSel.length * celulas, feitoOps = 0;
-        pm.innerHTML = '<div class="alert alert-warn">Iniciando... 0 de ' + totalOps + ' operações</div>';
+        var totalOps = servsSel.length * (fim - ini + 1), feitoOps = 0;
+        pm.innerHTML = '<div class="alert alert-warn">Iniciando... 0 de ' + totalOps + ' estacas</div>';
         var sucessos = [], erros = [];
         for (var si = 0; si < servsSel.length; si++) {
           var sv = servsSel[si];
           btn.textContent = 'Salvando ' + (si + 1) + '/' + servsSel.length + '…';
           try {
-            for (var e = ini; e <= fim; e += CELULA_ESTACAS * 5) {
+            for (var e = ini; e <= fim; e += 5) {
               var lote = [];
-              for (var j = e; j <= Math.min(e + CELULA_ESTACAS * 4, fim); j += CELULA_ESTACAS) lote.push(DataAPI.salvarProjeto(APP.obraAtual.Id, j, sv, cam));
+              for (var j = e; j <= Math.min(e + 4, fim); j++) lote.push(DataAPI.salvarProjeto(APP.obraAtual.Id, j, sv, cam));
               await Promise.all(lote); feitoOps += lote.length;
-              pm.innerHTML = '<div class="alert alert-warn">Salvando... ' + feitoOps + ' de ' + totalOps + ' operações (' + Math.round(feitoOps / totalOps * 100) + '%)</div>';
+              pm.innerHTML = '<div class="alert alert-warn">Salvando... ' + feitoOps + ' de ' + totalOps + ' estacas (' + Math.round(feitoOps / totalOps * 100) + '%)</div>';
               await new Promise(function (r) { setTimeout(r, 600) });
             }
             sucessos.push(NOMES[sv] || sv);
