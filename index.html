@@ -4119,47 +4119,53 @@
       html += calHtml;
       html += '</div>';
 
-      // Coluna direita: resumo + execução
+      // Coluna direita: só resumo (2×2)
       html += '<div>';
       html += '<h2>Resumo do Mês</h2>';
       function card(val, lbl, bg, fg){ fg=fg||'#fff'; return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+bg+';border-radius:6px;padding:8px 6px;text-align:center;margin-bottom:6px"><div style="font-family:\'Barlow Condensed\',Arial,sans-serif;font-size:24px;font-weight:800;color:'+fg+';line-height:1">'+val+'</div><div style="font-size:9px;color:'+fg+';opacity:.8;margin-top:1px;text-transform:uppercase;letter-spacing:.3px">'+lbl+'</div></div>'; }
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">';
       html += card(praticaveis,'Praticáveis','#2E7D32');
       html += card(imprat,'Impraticáveis','#B71C1C');
       html += card(semip,'Parciais','#E65100');
       html += card(dieselTot.toFixed(0)+' L','Diesel','#1565C0');
-
-      if(execRows.length){
-        html += '<h2>Avanço de Execução</h2>';
-        execRows.forEach(function(r){
-          var cor=CORES[r.sv]||'#888';
-          var acumStr = r.acumPct!==null ? r.acumPct+'%' : 's/d';
-          var mesStr2 = r.mesPct!==null  ? r.mesPct+'%'  : '0%';
-          var barW    = r.acumPct!==null ? r.acumPct : 0;
-          var barMes  = r.mesPct!==null  ? r.mesPct  : 0;
-          html += '<div style="margin-bottom:10px">';
-          // Nome do serviço
-          html += '<div style="font-size:9px;font-weight:700;color:#333;display:flex;align-items:center;gap:3px;margin-bottom:4px">'+
-            '<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:8px;height:8px;border-radius:2px;background:'+cor+'"></span>'+
-            NOMES[r.sv]+'</div>';
-          // Linha: No mês
-          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'+
-            '<span style="font-size:8px;color:#666;text-transform:uppercase;letter-spacing:.3px">No mês</span>'+
-            '<span style="font-size:11px;font-weight:800;color:'+cor+';font-family:\'Barlow Condensed\',Arial,sans-serif">'+mesStr2+'</span>'+
-          '</div>';
-          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:#e8e8e8;border-radius:3px;margin-bottom:4px">'+
-            '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:'+cor+';opacity:.5;width:'+barMes+'%;border-radius:3px"></div></div>';
-          // Linha: Acumulado
-          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'+
-            '<span style="font-size:8px;color:#666;text-transform:uppercase;letter-spacing:.3px">Acumulado</span>'+
-            '<span style="font-size:11px;font-weight:800;color:'+cor+';font-family:\'Barlow Condensed\',Arial,sans-serif">'+acumStr+'</span>'+
-          '</div>';
-          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:#e8e8e8;border-radius:3px">'+
-            '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:'+cor+';width:'+barW+'%;border-radius:3px"></div></div>';
-          html += '</div>';
-        });
-      }
+      html += '</div>';
       html += '</div>'; // fim col direita
       html += '</div>'; // fim grid
+
+      // ── AVANÇO DE EXECUÇÃO — grid 3 colunas ───────────────────────────
+      if(execRows.length){
+        html += '<h2>Avanço de Execução — '+mesNome+'/'+ano+'</h2>';
+        html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">';
+        execRows.forEach(function(r){
+          var cor = CORES[r.sv]||'#888';
+          var acumStr = r.acumPct!==null ? r.acumPct+'%' : 's/d';
+          var mesStr2 = r.mesPct!==null  ? r.mesPct+'%'  : '0%';
+          var barAcum = r.acumPct!==null ? r.acumPct : 0;
+          var barMes  = r.mesPct!==null  ? r.mesPct  : 0;
+          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;border:1px solid #e8e8e8;border-radius:7px;padding:10px 12px;background:#fff;border-top:3px solid '+cor+'">';
+          // Cabeçalho do card
+          html += '<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">'+
+            '<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:10px;height:10px;border-radius:3px;background:'+cor+';flex-shrink:0"></span>'+
+            '<span style="font-size:10px;font-weight:700;color:#1a1a2e">'+NOMES[r.sv]+'</span>'+
+          '</div>';
+          // No mês
+          html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">'+
+            '<span style="font-size:8px;color:#888;text-transform:uppercase;letter-spacing:.4px">No mês</span>'+
+            '<span style="font-family:\'Barlow Condensed\',Arial,sans-serif;font-size:16px;font-weight:800;color:'+cor+';line-height:1">'+mesStr2+'</span>'+
+          '</div>';
+          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:#f0f0f0;border-radius:3px;margin-bottom:8px">'+
+            '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:'+cor+';opacity:.55;width:'+barMes+'%;border-radius:3px"></div></div>';
+          // Acumulado
+          html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">'+
+            '<span style="font-size:8px;color:#888;text-transform:uppercase;letter-spacing:.4px">Acumulado</span>'+
+            '<span style="font-family:\'Barlow Condensed\',Arial,sans-serif;font-size:16px;font-weight:800;color:'+cor+';line-height:1">'+acumStr+'</span>'+
+          '</div>';
+          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:#f0f0f0;border-radius:3px">'+
+            '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:'+cor+';width:'+barAcum+'%;border-radius:3px"></div></div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      }
 
       // ── OBSERVAÇÕES ────────────────────────────────────────────────────
       if(obsHtml){
