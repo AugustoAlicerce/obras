@@ -3979,7 +3979,8 @@
       var servicos = getServicosObra();
       var execRows = servicos.map(function(sv){
         var projSet = new Set(); APP.projeto.filter(function(p){return p.Servico===sv;}).forEach(function(p){projSet.add(p.Estaca);});
-        var allSet  = new Set(); (APP.execucao||[]).filter(function(e){return e.Servico===sv;}).forEach(function(e){allSet.add(e.Estaca);});
+        // Acumulado até o último dia deste mês (não inclui execuções de meses futuros)
+        var allSet  = new Set(); (APP.execucao||[]).filter(function(e){return e.Servico===sv && (e.DataExecucao||'').substring(0,10)<=mesFimStr;}).forEach(function(e){allSet.add(e.Estaca);});
         var mesSet  = new Set(); execMes.filter(function(e){return e.Servico===sv;}).forEach(function(e){mesSet.add(e.Estaca);});
         var pct = projSet.size>0 ? Math.min(100,Math.round(allSet.size/projSet.size*100)) : (allSet.size>0?100:null);
         return {sv:sv, proj:projSet.size, all:allSet.size, mes:mesSet.size, pct:pct};
