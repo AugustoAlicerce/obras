@@ -1269,13 +1269,19 @@
         if (ex.length > 0) return SP.atualizarItem(LISTA_PROJETO, ex[0].Id, { NumCamadas: numCamadas });
         return SP.criarItem(LISTA_PROJETO, { Title: obraId + '-E' + estaca + '-' + servico, ObraId: obraId, Estaca: estaca, Servico: servico, NumCamadas: numCamadas })
       },
-      async listarExecucao(obraId) { return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId, 'Id,ObraId,DataExecucao,Estaca,Servico,NumCamadasExecutadas,Responsavel,Observacao,Faixa') },
+      async listarExecucao(obraId) {
+        return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId, 'Id,ObraId,DataExecucao,Estaca,Servico,NumCamadasExecutadas,Responsavel,Observacao,Faixa')
+          .catch(function() { return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId, 'Id,ObraId,DataExecucao,Estaca,Servico,NumCamadasExecutadas,Responsavel,Observacao'); });
+      },
       async salvarExecucao(obraId, data, estaca, servico, numCamadas, responsavel, obs, faixa) {
         var suffix = faixa ? '-F'+faixa : '';
         return SP.criarItem(LISTA_EXECUCAO, { Title: obraId+'-E'+estaca+'-'+servico+'-'+data+suffix, ObraId: obraId, DataExecucao: data, Estaca: estaca, Servico: servico, NumCamadasExecutadas: numCamadas, Responsavel: responsavel, Observacao: obs||'', Faixa: faixa||'' })
       },
       async listarEventos(obraId) { return SP.listarItens(LISTA_EVENTOS, 'ObraId eq ' + obraId, 'Id,ObraId,EstacaInicial,EstacaFinal,TipoEvento,Status,Observacao,DataExecucao') },
-      async listarDiario(obraId) { return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId, 'Id,ObraId,Data,ClimaManha,ClimaTarde,CondicaoManha,CondicaoTarde,DieselConsumo,DieselEstoque,AtividadesRealizadas,SolicitacaoEquipamento,SolicitacaoLida,Observacao,DiretoriaVisualizou') },
+      async listarDiario(obraId) {
+        return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId, 'Id,ObraId,Data,ClimaManha,ClimaTarde,CondicaoManha,CondicaoTarde,DieselConsumo,DieselEstoque,AtividadesRealizadas,SolicitacaoEquipamento,SolicitacaoLida,Observacao,DiretoriaVisualizou')
+          .catch(function() { return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId, 'Id,ObraId,Data,ClimaManha,ClimaTarde,CondicaoManha,CondicaoTarde,DieselConsumo,DieselEstoque,AtividadesRealizadas,SolicitacaoEquipamento,SolicitacaoLida,Observacao'); });
+      },
       async salvarDiario(obraId, data, campos) {
         var title = obraId + '-' + data;
         var ex = await SP.listarItens(LISTA_DIARIO, "ObraId eq " + obraId + " and Title eq '" + title + "'", 'Id');
