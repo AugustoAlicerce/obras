@@ -881,6 +881,7 @@
               <button class="secondary" onclick="navegarMesDiario(-1)" style="padding:4px 10px;font-size:16px;line-height:1">‹</button>
               <span id="diario-mes-label" style="font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:#0078d4;min-width:130px;text-align:center"></span>
               <button class="secondary" onclick="navegarMesDiario(1)" style="padding:4px 10px;font-size:16px;line-height:1">›</button>
+              <button class="secondary" onclick="gerarRelatorioPDF()" style="padding:4px 10px;font-size:12px;font-weight:600;color:#0078d4;display:flex;align-items:center;gap:5px" title="Gerar relatório PDF do mês">📄 Relatório</button>
             </div>
           </div>
           <div style="display:grid;grid-template-columns:1fr 200px;gap:20px;align-items:start">
@@ -900,6 +901,7 @@
                 <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:14px;height:14px;border-radius:50%;background:#5D4037;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;border:2px solid #ccc;box-shadow:0 1px 2px rgba(0,0,0,.2)">M</span>Material</span>
                 <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="width:14px;height:14px;border-radius:50%;background:#37474F;display:inline-flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;border:2px solid #ccc;box-shadow:0 1px 2px rgba(0,0,0,.2)">O</span>Outros</span>
                 <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="font-size:9px">📋</span>Solicitação</span>
+                <span style="display:flex;align-items:center;gap:3px;font-size:10px"><span style="font-size:9px">👁</span>Viz. Diretoria</span>
               </div>
             </div>
             <div id="diario-resumo" style="background:#f5f7fa;border:1px solid #e0e0e0;border-radius:8px;padding:14px"></div>
@@ -953,6 +955,14 @@
             </div>
             <div class="form-field"><label>Nº de camadas executadas</label><input type="number" id="r-cam" min="1"
                 value="1"></div>
+          </div>
+          <div id="r-faixa-wrap" style="display:none;margin-bottom:10px;padding:10px 14px;background:#f0f7ff;border:1px solid #bae0ff;border-radius:6px">
+            <div style="font-size:11px;font-weight:700;color:#0050a0;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">Largura de pista executada</div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="r-faixa" value="" checked style="accent-color:#0078d4"> Pista completa</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="r-faixa" value="1" style="accent-color:#0078d4"> Faixa 1 (meia pista)</label>
+              <label style="display:flex;align-items:center;gap:5px;font-size:13px;cursor:pointer"><input type="radio" name="r-faixa" value="2" style="accent-color:#0078d4"> Faixa 2 (meia pista)</label>
+            </div>
           </div>
           <div class="form-grid full">
             <div class="form-field"><label>Observação (opcional)</label><input type="text" id="r-obs"
@@ -1021,8 +1031,7 @@
         <div id="sub-servicos">
           <div class="card">
             <div class="card-title">Serviços desta obra</div>
-            <p style="font-size:13px;color:#666;margin:0 0 12px">Selecione e ordene os serviços desta obra. Use ↑↓ para
-              definir a ordem de pré-requisito. A Imprimação pode ser posicionada conforme necessário.</p>
+            <p style="font-size:13px;color:#666;margin:0 0 12px">Selecione e ordene os serviços desta obra. Use ↑↓ para definir a sequência de pré-requisito. É possível adicionar serviços personalizados e posicioná-los em qualquer ponto da ordem, inclusive antes da Terraplanagem.</p>
             <div id="servicos-obra"></div>
             <button class="primary" id="btn-salvar-servicos" style="margin-top:14px">Salvar serviços da obra</button>
             <div id="serv-msg"></div>
@@ -1159,6 +1168,7 @@
     var STRIP_CELLS = 50;     // 50 células por faixa = 5.000m
 
     var TODOS_SERVICOS = ['terra', 'sub', 'base', 'recicl', 'imprim', 'tsd', 'micro', 'cbuq'];
+    var BASE_SERVICOS = TODOS_SERVICOS.slice(); // cópia imutável — usada para resetar ao trocar de obra
     var NOMES = {
       terra: 'Terraplanagem', sub: 'Sub-base', base: 'Base',
       recicl: 'Reciclagem', imprim: 'Imprimação',
@@ -1176,6 +1186,28 @@
       recicl: 'Reciclagem', imprim: 'Imprimação', tsd: 'TSD',
       micro: 'Microrev.', cbuq: 'CBUQ'
     };
+
+    var SERVICOS_COM_FAIXA = ['cbuq', 'tsd'];
+
+    // Serviços extras da obra corrente (carregados em carregarDadosObra)
+    var _svExtra = []; // [{id, nome, cor}]
+
+    function aplicarServicosExtra(lista) {
+      // Reseta para a lista base antes de aplicar (evita acumulação ao trocar de obra)
+      TODOS_SERVICOS.length = 0;
+      BASE_SERVICOS.forEach(function(s) { TODOS_SERVICOS.push(s); });
+      _svExtra = lista || [];
+      _svExtra.forEach(function(sv) {
+        if (TODOS_SERVICOS.indexOf(sv.id) < 0) TODOS_SERVICOS.push(sv.id);
+        NOMES[sv.id] = sv.nome;
+        CORES[sv.id] = sv.cor;
+        NOMES_CHART[sv.id] = sv.nome.substring(0, 11);
+      });
+    }
+
+    function todosServicosDisponiveis() {
+      return TODOS_SERVICOS.slice();
+    }
 
     var TIPOS_EVENTO = ['bueiro', 'riacho', 'ponte', 'zona_urbana', 'corte', 'intersecao', 'praca', 'variante', 'cerca', 'fauna'];
     var NOMES_EVENTO = { bueiro: 'Bueiro', riacho: 'Riacho/Rio', ponte: 'Ponte/Viaduto', zona_urbana: 'Zona urbana', corte: 'Corte em rocha', intersecao: 'Interseção', praca: 'Praça/Retorno', variante: 'Variante', cerca: 'Cerca', fauna: 'Passagem fauna' };
@@ -1237,12 +1269,13 @@
         if (ex.length > 0) return SP.atualizarItem(LISTA_PROJETO, ex[0].Id, { NumCamadas: numCamadas });
         return SP.criarItem(LISTA_PROJETO, { Title: obraId + '-E' + estaca + '-' + servico, ObraId: obraId, Estaca: estaca, Servico: servico, NumCamadas: numCamadas })
       },
-      async listarExecucao(obraId) { return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId, 'Id,ObraId,DataExecucao,Estaca,Servico,NumCamadasExecutadas,Responsavel,Observacao') },
-      async salvarExecucao(obraId, data, estaca, servico, numCamadas, responsavel, obs) {
-        return SP.criarItem(LISTA_EXECUCAO, { Title: obraId + '-E' + estaca + '-' + servico + '-' + data, ObraId: obraId, DataExecucao: data, Estaca: estaca, Servico: servico, NumCamadasExecutadas: numCamadas, Responsavel: responsavel, Observacao: obs || '' })
+      async listarExecucao(obraId) { return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId, 'Id,ObraId,DataExecucao,Estaca,Servico,NumCamadasExecutadas,Responsavel,Observacao,Faixa') },
+      async salvarExecucao(obraId, data, estaca, servico, numCamadas, responsavel, obs, faixa) {
+        var suffix = faixa ? '-F'+faixa : '';
+        return SP.criarItem(LISTA_EXECUCAO, { Title: obraId+'-E'+estaca+'-'+servico+'-'+data+suffix, ObraId: obraId, DataExecucao: data, Estaca: estaca, Servico: servico, NumCamadasExecutadas: numCamadas, Responsavel: responsavel, Observacao: obs||'', Faixa: faixa||'' })
       },
       async listarEventos(obraId) { return SP.listarItens(LISTA_EVENTOS, 'ObraId eq ' + obraId, 'Id,ObraId,EstacaInicial,EstacaFinal,TipoEvento,Status,Observacao,DataExecucao') },
-      async listarDiario(obraId) { return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId, 'Id,ObraId,Data,ClimaManha,ClimaTarde,CondicaoManha,CondicaoTarde,DieselConsumo,DieselEstoque,AtividadesRealizadas,SolicitacaoEquipamento,SolicitacaoLida,Observacao') },
+      async listarDiario(obraId) { return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId, 'Id,ObraId,Data,ClimaManha,ClimaTarde,CondicaoManha,CondicaoTarde,DieselConsumo,DieselEstoque,AtividadesRealizadas,SolicitacaoEquipamento,SolicitacaoLida,Observacao,DiretoriaVisualizou') },
       async salvarDiario(obraId, data, campos) {
         var title = obraId + '-' + data;
         var ex = await SP.listarItens(LISTA_DIARIO, "ObraId eq " + obraId + " and Title eq '" + title + "'", 'Id');
@@ -1251,6 +1284,14 @@
         var r = await SP.criarItem(LISTA_DIARIO, payload); return r.Id || r.d && r.d.Id;
       },
       async marcarSolicitacaoLida(diarioId) { return SP.atualizarItem(LISTA_DIARIO, diarioId, {SolicitacaoLida: true}) },
+      async registrarVisualizacaoDiretoria(fichaId, email, vizAtual) {
+        var agora = new Date(); var ts = agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0')+' '+String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+        var partes = (vizAtual||'').split(';').map(function(s){return s.trim();}).filter(Boolean);
+        var jaViu = partes.some(function(p){ return p.split(':')[0].toLowerCase()===email.toLowerCase(); });
+        if (jaViu) return;
+        partes.push(email+':'+ts);
+        return SP.atualizarItem(LISTA_DIARIO, fichaId, {DiretoriaVisualizou: partes.join(';')});
+      },
       async listarDiarioEq(obraId) { return SP.listarItens(LISTA_DIARIO_EQ, 'ObraId eq ' + obraId, 'Id,ObraId,Data,Equipamento,Descricao') },
       async criarEquipamentoQuebrado(obraId, data, eq, desc, n) {
         return SP.criarItem(LISTA_DIARIO_EQ, {Title: obraId+'-'+data+'-'+n, ObraId: obraId, Data: data, Equipamento: eq, Descricao: desc});
@@ -1632,6 +1673,20 @@
           .reduce(function(a, e) { return a + (e.NumCamadasExecutadas || 0); }, 0);
         return planTotal > 0 ? Math.min(execTotal, planTotal) : 0;
       }
+      function faixaStatusCel(sv, cel) {
+        if (SERVICOS_COM_FAIXA.indexOf(sv) < 0) return null;
+        var gsStart = cel * CELULA_ESTACAS, gsEnd = gsStart + CELULA_ESTACAS;
+        var execs = execFiltrada.filter(function(e) { return e.Estaca >= gsStart && e.Estaca < gsEnd && e.Servico === sv; });
+        if (execs.length === 0) return 'none';
+        var temFull = execs.some(function(e) { return !e.Faixa || e.Faixa === ''; });
+        var tem1 = execs.some(function(e) { return e.Faixa === '1'; });
+        var tem2 = execs.some(function(e) { return e.Faixa === '2'; });
+        if (temFull || (tem1 && tem2)) return 'full';
+        if (tem1) return 'faixa1';
+        if (tem2) return 'faixa2';
+        return 'none';
+      }
+
       function svConcGrafCel(sv, cel) {
         var gsStart = cel * CELULA_ESTACAS, gsEnd = gsStart + CELULA_ESTACAS;
         var planned = APP.projeto.filter(function(p) { return p.Estaca >= gsStart && p.Estaca < gsEnd && p.Servico === sv; });
@@ -1706,16 +1761,37 @@
       topServs.forEach(function (s, i) {
         var lb = document.createElementNS(ns, 'text'); lb.setAttribute('x', L - 8); lb.setAttribute('y', SERV_START + i * (CH + G) + CH / 2 + 4); lb.setAttribute('text-anchor', 'end'); lb.setAttribute('font-size', '10'); lb.setAttribute('fill', '#555'); lb.setAttribute('font-weight', '600');
         lb.textContent = NOMES_CHART[s] || NOMES[s]; svg.appendChild(lb);
+        var temFaixas = SERVICOS_COM_FAIXA.indexOf(s) >= 0;
         for (var c = celIni; c <= celFim; c++) {
           var gs = c * CELULA_ESTACAS;
           var gsEndT = Math.min(gs + CELULA_ESTACAS - 1, APP.obraAtual.EstacaFinal || 99999);
           var tipRange = 'E.' + gs + ' a E.' + gsEndT;
-          var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', L + (c - celIni) * CW); r.setAttribute('y', SERV_START + i * (CH + G)); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
+          var celX = L + (c - celIni) * CW, celY = SERV_START + i * (CH + G);
           var temProj = camadasProj(gs, s) > 0;
-          if (!temProj) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.5'); r.setAttribute('stroke-dasharray', '2,2') }
-          else { var conc = svConcGrafCel(s, c); r.setAttribute('fill', conc ? CORES[s] : '#f0f0f0'); r.setAttribute('stroke', conc ? CORES[s] : '#ccc'); r.setAttribute('stroke-width', '0.5') }
-          var title = document.createElementNS(ns, 'title'); title.textContent = tipRange + ' | ' + NOMES[s] + (temProj ? (svConcGrafCel(s, c) ? ' ✓ concluída' : ' — pendente') : ' — sem projeto'); r.appendChild(title);
-          svg.appendChild(r);
+          if (temFaixas) {
+            var fs = faixaStatusCel(s, c);
+            // Fundo base
+            var bg = document.createElementNS(ns, 'rect'); bg.setAttribute('x', celX); bg.setAttribute('y', celY); bg.setAttribute('width', CW-1); bg.setAttribute('height', CH); bg.setAttribute('rx', '2');
+            if (!temProj) { bg.setAttribute('fill','transparent'); bg.setAttribute('stroke','#e8e8e8'); bg.setAttribute('stroke-width','0.5'); bg.setAttribute('stroke-dasharray','2,2'); }
+            else { bg.setAttribute('fill', fs==='none'||!fs ? '#f0f0f0' : CORES[s]); bg.setAttribute('stroke', fs==='none'||!fs ? '#ccc' : CORES[s]); bg.setAttribute('stroke-width','0.5'); }
+            var ttFx = document.createElementNS(ns,'title'); ttFx.textContent = tipRange+' | '+NOMES[s]+(temProj?(fs==='full'?' ✓ completa':fs==='faixa1'?' — Faixa 1':fs==='faixa2'?' — Faixa 2':' — pendente'):' — sem projeto'); bg.appendChild(ttFx);
+            svg.appendChild(bg);
+            // Se apenas meia faixa, desenha hachura/divisor para mostrar a outra metade vazia
+            if (temProj && (fs==='faixa1'||fs==='faixa2')) {
+              var halfH = Math.round(CH/2);
+              var emptyY = fs==='faixa1' ? celY+halfH : celY;
+              var emptyR = document.createElementNS(ns,'rect'); emptyR.setAttribute('x',celX); emptyR.setAttribute('y',emptyY); emptyR.setAttribute('width',CW-1); emptyR.setAttribute('height',halfH); emptyR.setAttribute('fill','#f0f0f0'); emptyR.setAttribute('stroke','none');
+              svg.appendChild(emptyR);
+              var div = document.createElementNS(ns,'line'); div.setAttribute('x1',celX); div.setAttribute('y1',celY+halfH); div.setAttribute('x2',celX+CW-1); div.setAttribute('y2',celY+halfH); div.setAttribute('stroke','rgba(255,255,255,0.6)'); div.setAttribute('stroke-width','1');
+              svg.appendChild(div);
+            }
+          } else {
+            var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', celX); r.setAttribute('y', celY); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
+            if (!temProj) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.5'); r.setAttribute('stroke-dasharray', '2,2') }
+            else { var conc = svConcGrafCel(s, c); r.setAttribute('fill', conc ? CORES[s] : '#f0f0f0'); r.setAttribute('stroke', conc ? CORES[s] : '#ccc'); r.setAttribute('stroke-width', '0.5') }
+            var title = document.createElementNS(ns, 'title'); title.textContent = tipRange + ' | ' + NOMES[s] + (temProj ? (svConcGrafCel(s, c) ? ' ✓ concluída' : ' — pendente') : ' — sem projeto'); r.appendChild(title);
+            svg.appendChild(r);
+          }
         }
       });
 
@@ -2006,56 +2082,100 @@
     function renderServicosObra() {
       var container = document.getElementById('servicos-obra');
       var atuais = getServicosObra();
-      // garante que terra seja sempre o primeiro na ordem
       var ordem = getOrdemServicos();
-      var idxTerra = ordem.indexOf('terra');
-      if (idxTerra > 0) { ordem.splice(idxTerra, 1); ordem.unshift('terra'); }
 
       var seqNum = 0;
       var html = '<div class="servicos-ordem-list">';
       ordem.forEach(function (s, i) {
         var ativo = atuais.indexOf(s) >= 0;
-        var isTerra = s === 'terra';
         var checked = ativo ? 'checked' : '';
         if (ativo) seqNum++;
         var seqLabel = ativo
           ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#0078d4;color:#fff;font-size:11px;font-weight:700;flex-shrink:0">' + seqNum + '</span>'
           : '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e0e0e0;color:#999;font-size:11px;flex-shrink:0">&mdash;</span>';
-        var reqLabel = ativo && seqNum > 1 ? ' <span style="font-size:11px;color:#888">(requer ' + NOMES[ordem[i - 1]] + ')</span>' : '';
-        var lockBadge = isTerra ? '<span style="font-size:10px;color:#888;padding:1px 6px;border:1px solid #ddd;border-radius:4px;margin-left:6px">1ª sempre</span>' : '';
-        var reorderBtns = isTerra
-          ? '<span style="font-size:10px;color:#bbb;padding:2px 8px">fixo</span>'
-          : (
-            (i > 1 ? '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\'' + s + '\',-1)">↑</button>' : '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↑</button>') +
-            (i < ordem.length - 1 ? '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\'' + s + '\',1)">↓</button>' : '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↓</button>')
-          );
-        html += '<div class="servico-item" style="' + (ativo ? 'border-left:3px solid ' + CORES[s] + ';' : 'opacity:.65;') + (isTerra ? 'background:#fffdf5;' : '') + '">' +
+        var prevAtivo = i > 0 ? ordem.slice(0, i).filter(function(x){ return atuais.indexOf(x) >= 0; }) : [];
+        var reqLabel = ativo && prevAtivo.length > 0 ? ' <span style="font-size:11px;color:#888">(requer ' + NOMES[prevAtivo[prevAtivo.length-1]] + ')</span>' : '';
+        var isExtra = _svExtra.some(function(e){ return e.id === s; });
+        var delBtn = isExtra ? '<button onclick="removerServicoExtra(\''+s+'\')" style="background:#fde7e9;border:1px solid #ffa39e;color:#a8071a;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:11px;margin-left:4px" title="Remover serviço personalizado">✕</button>' : '';
+        var reorderBtns =
+          (i > 0 ? '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\'' + s + '\',-1)">↑</button>' : '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↑</button>') +
+          (i < ordem.length - 1 ? '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1" onclick="moverServico(\'' + s + '\',1)">↓</button>' : '<button class="secondary" style="padding:2px 8px;font-size:12px;line-height:1;visibility:hidden">↓</button>');
+        html += '<div class="servico-item" style="' + (ativo ? 'border-left:3px solid ' + CORES[s] + ';' : 'opacity:.65;') + '">' +
           seqLabel +
-          '<label style="flex:1"><input type="checkbox" value="' + s + '" ' + checked + (isTerra ? ' disabled checked' : '') + '>' +
+          '<label style="flex:1"><input type="checkbox" value="' + s + '" ' + checked + '>' +
           '<span style="width:14px;height:14px;background:' + CORES[s] + ';display:inline-block;border-radius:3px;border:1px solid rgba(0,0,0,.1);vertical-align:middle;margin:0 4px"></span>' +
-          '<strong>' + NOMES[s] + '</strong>' + lockBadge + reqLabel +
+          '<strong>' + NOMES[s] + '</strong>' + reqLabel + delBtn +
           '</label>' +
           '<div class="reorder-btns">' + reorderBtns + '</div></div>';
       });
-      html += '</div><div style="margin-top:10px;font-size:12px;color:#888">O número em azul indica a sequência de pré-requisito. Terraplanagem é sempre o primeiro serviço (fundação da via). Use ↑↓ para ajustar a ordem dos demais. A Imprimação pode ser posicionada livremente.</div>';
+      html += '</div><div style="margin-top:10px;font-size:12px;color:#888">O número em azul indica a sequência de pré-requisito. Use ↑↓ para ajustar a ordem. A ordem define qual serviço é pré-requisito do próximo.</div>';
+
+      // Painel de serviços personalizados
+      html += '<div style="margin-top:18px;padding:14px 16px;border:1px solid #e0e8f5;border-radius:8px;background:#f5f8ff">' +
+        '<div style="font-size:13px;font-weight:700;color:#0050a0;margin-bottom:10px">➕ Adicionar serviço personalizado</div>' +
+        '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">' +
+          '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Nome do serviço</label>' +
+          '<input type="text" id="sv-novo-nome" placeholder="Ex: Compactação especial" style="padding:7px 10px;border:1px solid #ccc;border-radius:5px;font-size:13px;width:220px"></div>' +
+          '<div><label style="font-size:11px;color:#666;display:block;margin-bottom:3px">Cor</label>' +
+          '<input type="color" id="sv-novo-cor" value="#5B9BD5" style="padding:2px;border:1px solid #ccc;border-radius:5px;height:33px;width:50px;cursor:pointer"></div>' +
+          '<button onclick="adicionarServicoExtra()" class="primary" style="padding:7px 16px;font-size:13px">+ Adicionar</button>' +
+        '</div>' +
+        '<div id="sv-extra-msg" style="font-size:12px;margin-top:6px"></div>' +
+        (_svExtra.length > 0 ? '<div style="margin-top:10px;font-size:12px;color:#555"><strong>Serviços personalizados desta obra:</strong> ' + _svExtra.map(function(e){ return '<span style="background:'+e.cor+';color:#fff;padding:1px 7px;border-radius:3px;font-size:11px;margin-right:4px">'+e.nome+'</span>'; }).join('') + '</div>' : '') +
+      '</div>';
+
       container.innerHTML = html;
-      // Garante que terra esteja sempre nos selecionados
-      var terraCheck = container.querySelector('input[value="terra"]');
-      if (terraCheck) terraCheck.checked = true;
     }
 
     function moverServico(sv, dir) {
-      if (sv === 'terra') return; // terra é sempre primeira, não pode ser movida
       var ordem = getOrdemServicos();
-      // garante terra no índice 0
-      var idxT = ordem.indexOf('terra'); if (idxT > 0) { ordem.splice(idxT, 1); ordem.unshift('terra'); }
       var idx = ordem.indexOf(sv); if (idx < 0) return;
       var ni = idx + dir;
-      if (ni <= 0 || ni >= ordem.length) return; // não pode ultrapassar terra (posição 0)
+      if (ni < 0 || ni >= ordem.length) return;
       ordem.splice(idx, 1); ordem.splice(ni, 0, sv);
       if (!APP.obraAtual) return;
       APP.obraAtual.OrdemServicos = ordem.join(';');
       renderServicosObra();
+    }
+
+    async function adicionarServicoExtra() {
+      var nome = (document.getElementById('sv-novo-nome').value || '').trim();
+      var cor = document.getElementById('sv-novo-cor').value || '#5B9BD5';
+      var msg = document.getElementById('sv-extra-msg');
+      if (!nome) { if(msg){ msg.style.color='#E65100'; msg.textContent='Informe o nome do serviço.'; } return; }
+      if (!APP.obraAtual) return;
+      // Gera ID único e legível
+      var id = 'sv_' + nome.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 16) + '_' + Date.now().toString(36).slice(-4);
+      var lista = _svExtra.slice();
+      if (lista.some(function(e){ return e.nome.toLowerCase() === nome.toLowerCase(); })) {
+        if(msg){ msg.style.color='#E65100'; msg.textContent='Já existe um serviço com esse nome.'; } return;
+      }
+      lista.push({ id: id, nome: nome, cor: cor });
+      if(msg) msg.textContent = 'Salvando...';
+      try {
+        await salvarConfigItem('ServicosExtra_' + APP.obraAtual.Id, JSON.stringify(lista));
+        aplicarServicosExtra(lista);
+        document.getElementById('sv-novo-nome').value = '';
+        if(msg){ msg.style.color='#3A9C4E'; msg.textContent='✓ Serviço "' + nome + '" adicionado.'; }
+        renderServicosObra();
+        popularSelects();
+        renderLegend();
+        renderGraficoFaixas();
+      } catch(e) { if(msg){ msg.style.color='#E65100'; msg.textContent='Erro: '+e.message; } }
+    }
+
+    async function removerServicoExtra(svId) {
+      if (!confirm('Remover este serviço personalizado? Os dados de execução registrados serão mantidos, mas o serviço não aparecerá mais na lista.')) return;
+      if (!APP.obraAtual) return;
+      var lista = _svExtra.filter(function(s){ return s.id !== svId; });
+      try {
+        await salvarConfigItem('ServicosExtra_' + APP.obraAtual.Id, JSON.stringify(lista));
+        aplicarServicosExtra(lista);
+        renderServicosObra();
+        popularSelects();
+        renderLegend();
+        renderGraficoFaixas();
+      } catch(e) { alert('Erro: '+e.message); }
     }
 
     /* =================================================================
@@ -2081,6 +2201,8 @@
       var estFim = parseInt(document.getElementById('r-est-fim').value);
       var sv = document.getElementById('r-serv').value;
       var info = document.getElementById('r-info');
+      var faixaWrap = document.getElementById('r-faixa-wrap');
+      if (faixaWrap) faixaWrap.style.display = (sv && SERVICOS_COM_FAIXA.indexOf(sv) >= 0) ? 'block' : 'none';
       var ci = document.getElementById('r-cam');
       atualizarKmHints();
       info.className = 'info-box';
@@ -2164,6 +2286,8 @@
         var sv = document.getElementById('r-serv').value;
         var cam = parseInt(document.getElementById('r-cam').value);
         var obs = document.getElementById('r-obs').value;
+        var faixaSel = (function(){ var rb = document.querySelector('input[name="r-faixa"]:checked'); return rb ? rb.value : ''; })();
+        var usaFaixa = SERVICOS_COM_FAIXA.indexOf(sv) >= 0 && faixaSel !== '';
         var msg = document.getElementById('r-msg');
         msg.innerHTML = '';
         if (!podeRegistrar()) { msg.innerHTML = '<div class="alert alert-err">Sem permissão.</div>'; return }
@@ -2180,13 +2304,21 @@
             for (var j = e; j <= Math.min(e + 4, estFim); j++) {
               var n = camadasProjEst(j, sv);
               if (n === 0) { pulos++; continue }
-              var f = camadasExecEst(j, sv);
-              if (f >= n) { pulos++; continue }
-              var pre = preReqOK(sv, j);
-              if (!pre.ok) { bloqs++; continue }
-              var registrar = Math.min(cam, n - f);
-              lote.push(DataAPI.salvarExecucao(APP.obraAtual.Id, data, j, sv, registrar, APP.usuario.nome, obs));
-              ok++;
+              if (usaFaixa) {
+                // Faixa: sempre registra (não checa "já concluído"), apenas verifica pré-requisito
+                var pre2 = preReqOK(sv, j);
+                if (!pre2.ok) { bloqs++; continue }
+                lote.push(DataAPI.salvarExecucao(APP.obraAtual.Id, data, j, sv, 1, APP.usuario.nome, obs, faixaSel));
+                ok++;
+              } else {
+                var f = camadasExecEst(j, sv);
+                if (f >= n) { pulos++; continue }
+                var pre = preReqOK(sv, j);
+                if (!pre.ok) { bloqs++; continue }
+                var registrar = Math.min(cam, n - f);
+                lote.push(DataAPI.salvarExecucao(APP.obraAtual.Id, data, j, sv, registrar, APP.usuario.nome, obs, ''));
+                ok++;
+              }
             }
             if (lote.length > 0) await Promise.all(lote);
             msg.innerHTML = '<div class="alert alert-warn">Registrando E.' + e + ' a E.' + Math.min(e + 4, estFim) + '…</div>';
@@ -2349,7 +2481,7 @@
         }
       });
 
-      var cont = {praticavel:0, semi:0, impraticavel:0, fdsReg:0, intercEquip:0, intercMat:0, intercOutros:0, solicitacoes:0, dieselTotal:0, dieselEstoque:null};
+      var cont = {praticavel:0, semi:0, impraticavel:0, fdsReg:0, intercEquip:0, intercMat:0, intercOutros:0, solicitacoes:0, dieselTotal:0, dieselEstoque:null, vizDiretoria:0};
       var diasSemana = ['D','S','T','Q','Q','S','S'];
       var primeiroDia = new Date(anoDiario, mesDiario, 1).getDay();
 
@@ -2400,11 +2532,14 @@
           ? '<span class="diario-cel-sym">'+(symM||'·')+'<span class="diario-cel-sep">|</span>'+(symT||'·')+'</span>'
           : '<span class="diario-cel-sym sem-dados">·|·</span>';
 
+        var temVizDiret = ficha && (ficha.DiretoriaVisualizou||'').trim() !== '';
+        if (temVizDiret) cont.vizDiretoria++;
         var bottomParts = '';
         if (temEq || intercDia.equip) bottomParts += '<span class="diario-interc-badge" style="background:'+CORES_INTERC.equip+'">E</span>';
         if (intercDia.material)       bottomParts += '<span class="diario-interc-badge" style="background:'+CORES_INTERC.material+'">M</span>';
         if (intercDia.outros)         bottomParts += '<span class="diario-interc-badge" style="background:'+CORES_INTERC.outros+'">O</span>';
         if (temSol) bottomParts += '<span class="diario-dot-sol">📋</span>';
+        if (temVizDiret) bottomParts += '<span class="diario-dot-sol" title="Visualizado pela diretoria" style="font-size:11px;opacity:.8">👁</span>';
         var bottomHtml = bottomParts ? '<div class="diario-cel-bottom">'+bottomParts+'</div>' : '';
 
         var evts = futuro ? '' : ' onclick="abrirFichaDia(\''+dataStr+'\')" onmouseenter="mostrarTooltipDiario(event,\''+dataStr+'\')" onmouseleave="ocultarTooltipDiario()"';
@@ -2446,6 +2581,9 @@
         r += '<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="font-size:12px">Estoque atual</span><span style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:700;color:#0078d4">'+(cont.dieselEstoque!==null?cont.dieselEstoque.toFixed(0)+' L':'—')+'</span></div>';
         if (cont.solicitacoes > 0) {
           r += '<div style="background:#fff3cd;border:1px solid #ffc069;border-radius:5px;padding:6px 8px;font-size:11px;color:#7c5a00;text-align:center">📋 '+cont.solicitacoes+' solicitação(ões) de equip.</div>';
+        }
+        if (cont.vizDiretoria > 0) {
+          r += '<div style="margin-top:6px;background:#f1f8e9;border:1px solid #c5e1a5;border-radius:5px;padding:6px 8px;font-size:11px;color:#33691e;text-align:center">👁 '+cont.vizDiretoria+' dia(s) visualizado(s) pela diretoria</div>';
         }
         resumoEl.innerHTML = r;
       }
@@ -2502,6 +2640,31 @@
           : '';
         var bannerHtml = '<div class="diario-readonly-banner">🔒 Dia anterior — apenas leitura.'+admMsg+'</div>';
 
+        // Registrar visualização da diretoria automaticamente
+        if (ficha && ficha.Id && isDireitoriaUser()) {
+          var emailDir = APP.usuario.email;
+          DataAPI.registrarVisualizacaoDiretoria(ficha.Id, emailDir, ficha.DiretoriaVisualizou||'').then(function() {
+            var partes = (ficha.DiretoriaVisualizou||'').split(';').map(function(s){return s.trim();}).filter(Boolean);
+            var jaViu = partes.some(function(p){ return p.split(':')[0].toLowerCase()===emailDir.toLowerCase(); });
+            if (!jaViu) {
+              var agora = new Date(); var ts = agora.getFullYear()+'-'+String(agora.getMonth()+1).padStart(2,'0')+'-'+String(agora.getDate()).padStart(2,'0')+' '+String(agora.getHours()).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+              ficha.DiretoriaVisualizou = ((ficha.DiretoriaVisualizou||'')+';'+emailDir+':'+ts).replace(/^;/,'');
+              renderDiario();
+            }
+          }).catch(function(){});
+        }
+
+        // Montar banner de visualizações
+        var vizHtml = '';
+        if (ficha && (ficha.DiretoriaVisualizou||'').trim()) {
+          var vizPartes = ficha.DiretoriaVisualizou.split(';').map(function(s){return s.trim();}).filter(Boolean);
+          var vizLinhas = vizPartes.map(function(p) {
+            var pts = p.split(':'); var email2 = pts[0]; var dtHr = pts.slice(1).join(':');
+            return '<span style="display:inline-block;background:#e8f5e9;border:1px solid #a5d6a7;border-radius:4px;padding:2px 7px;font-size:11px;margin:2px">👁 '+email2+(dtHr?' — '+dtHr:'')+'</span>';
+          }).join(' ');
+          vizHtml = '<div style="margin-top:8px;padding:8px 10px;background:#f1f8e9;border:1px solid #c5e1a5;border-radius:6px;font-size:11px"><span style="font-weight:700;color:#33691e">Visualizado pela diretoria:</span><div style="margin-top:4px">'+vizLinhas+'</div></div>';
+        }
+
         var bodyHtml = '';
         if (semRegistro) {
           bodyHtml = '<div style="text-align:center;padding:24px;color:#aaa;font-size:13px">Nenhum registro para este dia.</div>';
@@ -2536,7 +2699,7 @@
         }
 
         modalContent.innerHTML =
-          '<div class="diario-ficha" id="diario-ficha">'+headerHtml+bannerHtml+bodyHtml+'</div>';
+          '<div class="diario-ficha" id="diario-ficha">'+headerHtml+bannerHtml+bodyHtml+vizHtml+'</div>';
         document.getElementById('diario-modal-inner').scrollTop = 0;
         _fotosQueue = []; _fotosQueuePreviews = [];
         return;
@@ -3593,6 +3756,11 @@
       var results = await Promise.all([DataAPI.listarProjeto(APP.obraAtual.Id), DataAPI.listarExecucao(APP.obraAtual.Id), DataAPI.listarEventos(APP.obraAtual.Id), DataAPI.listarDiario(APP.obraAtual.Id), DataAPI.listarDiarioEq(APP.obraAtual.Id)]);
       APP.projeto = results[0]; APP.execucao = results[1]; APP.eventos = results[2]; APP.diario = results[3]; APP.diarioEq = results[4];
       try { APP.intercorrencias = await DataAPI.listarIntercorrencias(APP.obraAtual.Id); } catch(e2) { APP.intercorrencias = []; }
+      // Carrega serviços personalizados desta obra
+      try {
+        var svExtItems = await SP.listarItens(LISTA_CONFIG, "Title eq 'ServicosExtra_"+APP.obraAtual.Id+"'", 'Id,Title,Valor');
+        aplicarServicosExtra(svExtItems.length && svExtItems[0].Valor ? JSON.parse(svExtItems[0].Valor) : []);
+      } catch(e3) { aplicarServicosExtra([]); }
       dbg('Projeto: '+APP.projeto.length+' | Execução: '+APP.execucao.length+' | Eventos: '+APP.eventos.length+' | Diário: '+APP.diario.length+' | DiárioEq: '+APP.diarioEq.length+' | Interc: '+APP.intercorrencias.length, 'ok');
       popularSelects(); renderStats(); renderLegend(); renderGraficoFaixas(); renderDiario(); renderBadgeNotificacoes();
       if (document.getElementById('tab-historico').style.display !== 'none') renderHistorico();
@@ -3748,6 +3916,121 @@
       } catch (e) { document.getElementById('login-err').innerHTML = '<div class="alert alert-err">Erro: ' + e.message + '</div>' }
     }
     boot();
+
+    /* =================================================================
+       RELATÓRIO PDF MENSAL
+       ================================================================= */
+    function gerarRelatorioPDF() {
+      if (!APP.obraAtual) return;
+      var nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+      var mesNome = nomesMes[mesDiario];
+      var ano = anoDiario;
+      var obra = APP.obraAtual;
+
+      // Dados do mês
+      var totalDias = new Date(ano, mesDiario + 1, 0).getDate();
+      var fichasMes = (APP.diario||[]).filter(function(f){ var d=(f.Data||'').substring(0,10); return d >= ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01' && d <= ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0'); });
+      var intercMes = (APP.intercorrencias||[]).filter(function(ic){ var ini=(ic.DataInicio||'').substring(0,10); var fim=(ic.DataFim||'').substring(0,10); var mesIni=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01'; var mesFim=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0'); return ini<=mesFim&&(!fim||fim>=mesIni); });
+
+      // SVG do perfil filtrado ao mês
+      var svgEl = gerarSvgFaixas(ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01', ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0'));
+      var svgHtml = svgEl ? svgEl.outerHTML : '';
+
+      // Tabela diária
+      var cNomes = {claro:'☀ Claro', chuvoso:'🌧 Chuvoso'};
+      var dNomes = {praticavel:'Praticável', impraticavel:'Impraticável'};
+      var linhasDiario = '';
+      var praticaveis=0, semip=0, imprat=0, fdsR=0, dieselTot=0;
+      for (var dia=1; dia<=totalDias; dia++) {
+        var ds = ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
+        var f = fichasMes.find(function(x){return (x.Data||'').substring(0,10)===ds;});
+        var dObj = new Date(ds+'T12:00:00'); var dow = dObj.getDay(); var fds = dow===0||dow===6;
+        var dtFmt = String(dia).padStart(2,'0')+'/'+String(mesDiario+1).padStart(2,'0')+'/'+ano;
+        var semNome = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][dow];
+        if (!f) { linhasDiario+='<tr><td>'+dtFmt+'</td><td style="color:#aaa">'+semNome+'</td><td colspan="4" style="color:#ccc;text-align:center">—</td></tr>'; continue; }
+        var cM=f.ClimaManha||'', cT=f.ClimaTarde||'', dM=f.CondicaoManha||'', dT=f.CondicaoTarde||'';
+        var condStr = (dM===dT&&dM)?dNomes[dM]||dM:((dNomes[dM]||dM)+(dT&&dT!==dM?' / '+(dNomes[dT]||dT):''));
+        var climaStr = (cM&&cT)?(cNomes[cM]||cM)+(cT&&cT!==cM?' / '+(cNomes[cT]||cT):''):((cNomes[cM]||cM)||(cNomes[cT]||cT));
+        var rowCls = fds?'background:#f9f9f9':''; if(dM==='impraticavel'&&dT==='impraticavel') rowCls='background:#fff0ee'; else if(dM==='praticavel'&&dT==='praticavel') rowCls='background:#f0fff4';
+        if(fds) fdsR++; else if(dM==='impraticavel'&&dT==='impraticavel') imprat++; else if(dM==='impraticavel'||dT==='impraticavel') semip++; else if(dM||dT) praticaveis++;
+        if(f.DieselConsumo) dieselTot+=parseFloat(f.DieselConsumo)||0;
+        var pendDia=(APP.intercorrencias||[]).filter(function(ic){var ini=(ic.DataInicio||'').substring(0,10),fim=(ic.DataFim||'').substring(0,10);return ini<=ds&&(!fim||fim>=ds);});
+        var pendStr=pendDia.map(function(ic){return (NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+(ic.Descricao?' ('+ic.Descricao+')':'');}).join('; ');
+        linhasDiario+='<tr style="'+rowCls+'"><td>'+dtFmt+'</td><td>'+semNome+'</td><td>'+climaStr+'</td><td>'+condStr+'</td><td style="font-size:11px">'+((f.AtividadesRealizadas||'').replace(/\n/g,' ').substring(0,80)+(f.AtividadesRealizadas&&f.AtividadesRealizadas.length>80?'…':''))+'</td><td style="font-size:11px;color:#c62828">'+pendStr+'</td></tr>';
+      }
+
+      // Pendências do mês
+      var linhasPend = '';
+      intercMes.forEach(function(ic){
+        var cor = CORES_INTERC[ic.TipoInterc]||'#555';
+        var ini=(ic.DataInicio||'').substring(0,10).split('-').reverse().join('/');
+        var fim=(ic.DataFim||'').substring(0,10); var fimFmt=fim?fim.split('-').reverse().join('/'):'Em aberto';
+        var status=fim?'<span style="color:#2E7D32;font-weight:600">✓ Resolvida</span>':'<span style="color:#c62828;font-weight:600">⚠ Em aberto</span>';
+        linhasPend+='<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cor+';margin-right:5px"></span>'+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+'</td><td>'+(ic.Descricao||'—')+'</td><td>'+ini+'</td><td>'+fimFmt+'</td><td>'+status+'</td></tr>';
+      });
+
+      // Produção por serviço no mês
+      var execMes = (APP.execucao||[]).filter(function(e){var d=(e.DataExecucao||'').substring(0,10);return d>=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01'&&d<=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0');});
+      var prodPorSv = {};
+      execMes.forEach(function(e){ if(!prodPorSv[e.Servico]) prodPorSv[e.Servico]={estacas:new Set(),metros:0}; prodPorSv[e.Servico].estacas.add(e.Estaca); prodPorSv[e.Servico].metros=prodPorSv[e.Servico].estacas.size*20; });
+      var linhasProd = '';
+      getServicosObra().forEach(function(sv){ if(prodPorSv[sv]){ linhasProd+='<tr><td>'+NOMES[sv]+'</td><td style="text-align:right;font-weight:600">'+prodPorSv[sv].estacas.size+'</td><td style="text-align:right;font-weight:600">'+prodPorSv[sv].metros+' m</td><td style="text-align:right">'+((prodPorSv[sv].metros/1000).toFixed(3)+' km')+'</td></tr>'; }});
+
+      var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório '+mesNome+'/'+ano+' — '+obra.Title+'</title><style>';
+      html += '@page{size:A4;margin:18mm 15mm 18mm 15mm}';
+      html += 'body{font-family:Arial,sans-serif;font-size:12px;color:#222;margin:0}';
+      html += 'h1{font-size:18px;margin:0 0 2px;color:#0078d4}h2{font-size:13px;margin:18px 0 8px;color:#0078d4;border-bottom:2px solid #0078d4;padding-bottom:4px;page-break-after:avoid}';
+      html += '.header{border-bottom:3px solid #0078d4;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}';
+      html += '.header-right{text-align:right;font-size:11px;color:#555}';
+      html += 'table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}th{background:#0078d4;color:#fff;padding:5px 6px;text-align:left;font-size:10px}td{padding:4px 6px;border-bottom:1px solid #eee;vertical-align:top}';
+      html += '.resumo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}';
+      html += '.resumo-card{background:#f5f8ff;border:1px solid #bae0ff;border-radius:6px;padding:8px 10px;text-align:center}';
+      html += '.resumo-card .val{font-size:22px;font-weight:700;color:#0078d4;font-family:"Barlow Condensed",Arial,sans-serif}';
+      html += '.resumo-card .lbl{font-size:10px;color:#555;margin-top:2px}';
+      html += '.svg-wrap{width:100%;overflow:hidden;margin-bottom:10px;border:1px solid #e0e0e0;border-radius:4px;padding:6px;box-sizing:border-box}';
+      html += '.svg-wrap svg{max-width:100%;height:auto}';
+      html += '@media print{button{display:none}.no-print{display:none}}';
+      html += '</style></head><body>';
+      html += '<div class="header"><div><h1>'+obra.Title+'</h1><div style="font-size:12px;color:#555">Relatório Mensal de Obra — '+mesNome+' de '+ano+'</div></div>';
+      html += '<div class="header-right">Gerado em: '+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'<br>Responsável: '+(obra.Responsaveis||'—')+'</div></div>';
+      html += '<h2>Perfil de Execução — Produção do Mês</h2>';
+      html += '<div class="svg-wrap">'+svgHtml+'</div>';
+      html += '<h2>Resumo do Mês</h2>';
+      html += '<div class="resumo-grid">';
+      html += '<div class="resumo-card"><div class="val">'+praticaveis+'</div><div class="lbl">Dias Praticáveis</div></div>';
+      html += '<div class="resumo-card"><div class="val">'+imprat+'</div><div class="lbl">Dias Impraticáveis</div></div>';
+      html += '<div class="resumo-card"><div class="val">'+semip+'</div><div class="lbl">Dias Parciais</div></div>';
+      html += '<div class="resumo-card"><div class="val">'+dieselTot.toFixed(0)+' L</div><div class="lbl">Diesel Consumido</div></div>';
+      html += '</div>';
+      if(linhasProd) { html += '<h2>Produção por Serviço</h2><table><thead><tr><th>Serviço</th><th style="text-align:right">Estacas</th><th style="text-align:right">Extensão</th><th style="text-align:right">Km</th></tr></thead><tbody>'+linhasProd+'</tbody></table>'; }
+      html += '<h2>Diário do Mês</h2>';
+      html += '<table><thead><tr><th>Data</th><th>Dia</th><th>Clima</th><th>Condição</th><th>Atividades</th><th>Pendências</th></tr></thead><tbody>'+linhasDiario+'</tbody></table>';
+      if(linhasPend) { html += '<h2>Pendências do Período</h2><table><thead><tr><th>Tipo</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Status</th></tr></thead><tbody>'+linhasPend+'</tbody></table>'; }
+      html += '<div style="margin-top:20px;border-top:1px solid #ddd;padding-top:10px;font-size:10px;color:#aaa;display:flex;justify-content:space-between"><span>'+obra.Title+' — '+mesNome+'/'+ano+'</span><span>Sistema de Acompanhamento de Obras</span></div>';
+      html += '</body></html>';
+
+      var win = window.open('', '_blank', 'width=900,height=700');
+      win.document.write(html);
+      win.document.close();
+      win.onload = function(){ win.focus(); setTimeout(function(){ win.print(); }, 400); };
+    }
+
+    function gerarSvgFaixas(dataIni, dataFim) {
+      var iniEl = document.getElementById('g-data-ini');
+      var fimEl = document.getElementById('g-data-fim');
+      var oldIni = iniEl ? iniEl.value : '';
+      var oldFim = fimEl ? fimEl.value : '';
+      if (iniEl) iniEl.value = dataIni;
+      if (fimEl) fimEl.value = dataFim;
+      renderGraficoFaixas();
+      var container = document.getElementById('faixas-container');
+      var svgEl = container ? container.querySelector('svg') : null;
+      var clone = svgEl ? svgEl.cloneNode(true) : null;
+      if (iniEl) iniEl.value = oldIni;
+      if (fimEl) fimEl.value = oldFim;
+      renderGraficoFaixas();
+      return clone;
+    }
   </script>
   <div id="diario-tooltip"></div>
 
