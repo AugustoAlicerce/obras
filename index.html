@@ -1396,6 +1396,12 @@
       await salvarConfigItem('DiarioRetroativo_' + obraId, novoValor);
     }
 
+    function diaAnterior(dateStr) {
+      var d = new Date(dateStr + 'T12:00:00');
+      d.setDate(d.getDate() - 1);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
     function podeRegistrar() {
       if (!APP.obraAtual) return false;
       var r = APP.obraAtual.Responsaveis;
@@ -2739,30 +2745,46 @@
         };
         var savedId = await DataAPI.salvarDiario(APP.obraAtual.Id, dataStr, campos);
 
-        // Atualizar descrição de pendências ativas (se editou)
+        // Processar pendências ativas: SCD Type 2 para edição de descrição + resolução
         var descEdits = document.querySelectorAll('.pend-desc-edit');
         for (var de=0; de<descEdits.length; de++) {
           var el = descEdits[de];
           var icId2 = parseInt(el.dataset.pendId);
           var novaDesc = el.value.trim();
           var origDesc = el.dataset.pendOrig || '';
-          if (novaDesc !== origDesc) {
-            try {
-              await DataAPI.atualizarPendencia(icId2, { Descricao: novaDesc });
-              var icRef = APP.intercorrencias.find(function(x){return x.Id===icId2;});
-              if (icRef) icRef.Descricao = novaDesc;
-            } catch(e2){}
-          }
+          var descMudou = (novaDesc !== origDesc);
+          var resolverChk = document.getElementById('resolver-'+icId2);
+          var resolvendo = resolverChk && resolverChk.checked;
+          if (!descMudou && !resolvendo) continue;
+          try {
+            var icRef = APP.intercorrencias.find(function(x){return x.Id===icId2;});
+            if (!icRef) continue;
+            var mesmoDia = (icRef.DataInicio||'').substring(0,10) === dataStr;
+            if (descMudou && !mesmoDia) {
+              // Dia diferente do início — SCD Type 2: cria nova versão, fecha a anterior
+              var novoRec = await DataAPI.criarIntercorrencia(APP.obraAtual.Id, icRef.TipoInterc, novaDesc, dataStr);
+              var novoId = novoRec && novoRec.Id;
+              await DataAPI.atualizarPendencia(icId2, { DataFim: diaAnterior(dataStr) });
+              icRef.DataFim = diaAnterior(dataStr);
+              var novoItem = { Id: novoId, ObraId: APP.obraAtual.Id, TipoInterc: icRef.TipoInterc, Descricao: novaDesc, DataInicio: dataStr, DataFim: null };
+              APP.intercorrencias.push(novoItem);
+              if (resolvendo && novoId) {
+                await DataAPI.resolverIntercorrencia(novoId, dataStr);
+                novoItem.DataFim = dataStr;
+              }
+            } else {
+              // Mesmo dia de início (correção in-place) ou apenas resolução sem mudança
+              if (descMudou) {
+                await DataAPI.atualizarPendencia(icId2, { Descricao: novaDesc });
+                icRef.Descricao = novaDesc;
+              }
+              if (resolvendo) {
+                await DataAPI.resolverIntercorrencia(icId2, dataStr);
+                icRef.DataFim = dataStr;
+              }
+            }
+          } catch(e2){}
         }
-
-        // Resolver pendências marcadas
-        var resolverChks = document.querySelectorAll('[id^="resolver-"]:checked');
-        resolverChks.forEach(function(chk) {
-          var icId = parseInt(chk.id.replace('resolver-',''));
-          DataAPI.resolverIntercorrencia(icId, dataStr).catch(function(){});
-          var ic = APP.intercorrencias.find(function(x){return x.Id===icId;});
-          if (ic) ic.DataFim = dataStr;
-        });
 
         // Criar novas pendências marcadas
         var novasChks = document.querySelectorAll('.nova-pend:checked');
