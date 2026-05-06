@@ -3932,93 +3932,246 @@
       var mesNome = nomesMes[mesDiario];
       var ano = anoDiario;
       var obra = APP.obraAtual;
-
-      // Dados do mês
       var totalDias = new Date(ano, mesDiario + 1, 0).getDate();
-      var fichasMes = (APP.diario||[]).filter(function(f){ var d=(f.Data||'').substring(0,10); return d >= ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01' && d <= ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0'); });
-      var intercMes = (APP.intercorrencias||[]).filter(function(ic){ var ini=(ic.DataInicio||'').substring(0,10); var fim=(ic.DataFim||'').substring(0,10); var mesIni=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01'; var mesFim=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0'); return ini<=mesFim&&(!fim||fim>=mesIni); });
+      var mm = String(mesDiario+1).padStart(2,'0');
+      var mesStr = ano+'-'+mm;
+      var mesIniStr = mesStr+'-01';
+      var mesFimStr = mesStr+'-'+String(totalDias).padStart(2,'0');
 
-      // SVG do perfil filtrado ao mês
-      var svgEl = gerarSvgFaixas(ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01', ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0'));
-      var svgHtml = svgEl ? svgEl.outerHTML : '';
+      // ===== COLETAR DADOS =====
+      var fichasMap = {};
+      (APP.diario||[]).forEach(function(f){ var d=(f.Data||'').substring(0,10); if(d>=mesIniStr&&d<=mesFimStr) fichasMap[d]=f; });
+      var fichasMes = Object.values ? Object.values(fichasMap) : Object.keys(fichasMap).map(function(k){return fichasMap[k];});
 
-      // Tabela diária
-      var cNomes = {claro:'☀ Claro', chuvoso:'🌧 Chuvoso'};
-      var dNomes = {praticavel:'Praticável', impraticavel:'Impraticável'};
-      var linhasDiario = '';
-      var praticaveis=0, semip=0, imprat=0, fdsR=0, dieselTot=0;
-      for (var dia=1; dia<=totalDias; dia++) {
-        var ds = ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
-        var f = fichasMes.find(function(x){return (x.Data||'').substring(0,10)===ds;});
-        var dObj = new Date(ds+'T12:00:00'); var dow = dObj.getDay(); var fds = dow===0||dow===6;
-        var dtFmt = String(dia).padStart(2,'0')+'/'+String(mesDiario+1).padStart(2,'0')+'/'+ano;
-        var semNome = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][dow];
-        if (!f) { linhasDiario+='<tr><td>'+dtFmt+'</td><td style="color:#aaa">'+semNome+'</td><td colspan="4" style="color:#ccc;text-align:center">—</td></tr>'; continue; }
-        var cM=f.ClimaManha||'', cT=f.ClimaTarde||'', dM=f.CondicaoManha||'', dT=f.CondicaoTarde||'';
-        var condStr = (dM===dT&&dM)?dNomes[dM]||dM:((dNomes[dM]||dM)+(dT&&dT!==dM?' / '+(dNomes[dT]||dT):''));
-        var climaStr = (cM&&cT)?(cNomes[cM]||cM)+(cT&&cT!==cM?' / '+(cNomes[cT]||cT):''):((cNomes[cM]||cM)||(cNomes[cT]||cT));
-        var rowCls = fds?'background:#f9f9f9':''; if(dM==='impraticavel'&&dT==='impraticavel') rowCls='background:#fff0ee'; else if(dM==='praticavel'&&dT==='praticavel') rowCls='background:#f0fff4';
-        if(fds) fdsR++; else if(dM==='impraticavel'&&dT==='impraticavel') imprat++; else if(dM==='impraticavel'||dT==='impraticavel') semip++; else if(dM||dT) praticaveis++;
-        if(f.DieselConsumo) dieselTot+=parseFloat(f.DieselConsumo)||0;
-        var pendDia=(APP.intercorrencias||[]).filter(function(ic){var ini=(ic.DataInicio||'').substring(0,10),fim=(ic.DataFim||'').substring(0,10);return ini<=ds&&(!fim||fim>=ds);});
-        var pendStr=pendDia.map(function(ic){return (NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+(ic.Descricao?' ('+ic.Descricao+')':'');}).join('; ');
-        linhasDiario+='<tr style="'+rowCls+'"><td>'+dtFmt+'</td><td>'+semNome+'</td><td>'+climaStr+'</td><td>'+condStr+'</td><td style="font-size:11px">'+((f.AtividadesRealizadas||'').replace(/\n/g,' ').substring(0,80)+(f.AtividadesRealizadas&&f.AtividadesRealizadas.length>80?'…':''))+'</td><td style="font-size:11px;color:#c62828">'+pendStr+'</td></tr>';
-      }
+      var eqPorData = {};
+      (APP.diarioEq||[]).forEach(function(e){ var d=(e.Data||'').substring(0,10); if(d){if(!eqPorData[d])eqPorData[d]=0; eqPorData[d]++;} });
 
-      // Pendências do mês
-      var linhasPend = '';
-      intercMes.forEach(function(ic){
-        var cor = CORES_INTERC[ic.TipoInterc]||'#555';
-        var ini=(ic.DataInicio||'').substring(0,10).split('-').reverse().join('/');
-        var fim=(ic.DataFim||'').substring(0,10); var fimFmt=fim?fim.split('-').reverse().join('/'):'Em aberto';
-        var status=fim?'<span style="color:#2E7D32;font-weight:600">✓ Resolvida</span>':'<span style="color:#c62828;font-weight:600">⚠ Em aberto</span>';
-        linhasPend+='<tr><td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cor+';margin-right:5px"></span>'+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+'</td><td>'+(ic.Descricao||'—')+'</td><td>'+ini+'</td><td>'+fimFmt+'</td><td>'+status+'</td></tr>';
+      var hojeStr = new Date().toISOString().substring(0,10);
+      var intercPorData = {};
+      (APP.intercorrencias||[]).forEach(function(ic){
+        var ini=(ic.DataInicio||'').substring(0,10);
+        var fim=(ic.DataFim||'').substring(0,10)||hojeStr;
+        for(var dx=1;dx<=totalDias;dx++){
+          var dsx=mesStr+'-'+String(dx).padStart(2,'0');
+          if(dsx>=ini&&dsx<=fim){ if(!intercPorData[dsx]) intercPorData[dsx]={}; intercPorData[dsx][ic.TipoInterc]=true; }
+        }
       });
 
-      // Produção por serviço no mês
-      var execMes = (APP.execucao||[]).filter(function(e){var d=(e.DataExecucao||'').substring(0,10);return d>=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-01'&&d<=ano+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(totalDias).padStart(2,'0');});
-      var prodPorSv = {};
-      execMes.forEach(function(e){ if(!prodPorSv[e.Servico]) prodPorSv[e.Servico]={estacas:new Set(),metros:0}; prodPorSv[e.Servico].estacas.add(e.Estaca); prodPorSv[e.Servico].metros=prodPorSv[e.Servico].estacas.size*20; });
-      var linhasProd = '';
-      getServicosObra().forEach(function(sv){ if(prodPorSv[sv]){ linhasProd+='<tr><td>'+NOMES[sv]+'</td><td style="text-align:right;font-weight:600">'+prodPorSv[sv].estacas.size+'</td><td style="text-align:right;font-weight:600">'+prodPorSv[sv].metros+' m</td><td style="text-align:right">'+((prodPorSv[sv].metros/1000).toFixed(3)+' km')+'</td></tr>'; }});
+      var execMes = (APP.execucao||[]).filter(function(e){ var d=(e.DataExecucao||'').substring(0,10); return d>=mesIniStr&&d<=mesFimStr; });
+      var intercMes = (APP.intercorrencias||[]).filter(function(ic){ var ini=(ic.DataInicio||'').substring(0,10),fim=(ic.DataFim||'').substring(0,10); return ini<=mesFimStr&&(!fim||fim>=mesIniStr); });
 
-      var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório '+mesNome+'/'+ano+' — '+obra.Title+'</title><style>';
-      html += '@page{size:A4;margin:18mm 15mm 18mm 15mm}';
-      html += 'body{font-family:Arial,sans-serif;font-size:12px;color:#222;margin:0}';
-      html += 'h1{font-size:18px;margin:0 0 2px;color:#0078d4}h2{font-size:13px;margin:18px 0 8px;color:#0078d4;border-bottom:2px solid #0078d4;padding-bottom:4px;page-break-after:avoid}';
-      html += '.header{border-bottom:3px solid #0078d4;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end}';
-      html += '.header-right{text-align:right;font-size:11px;color:#555}';
-      html += 'table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px}th{background:#0078d4;color:#fff;padding:5px 6px;text-align:left;font-size:10px}td{padding:4px 6px;border-bottom:1px solid #eee;vertical-align:top}';
-      html += '.resumo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}';
-      html += '.resumo-card{background:#f5f8ff;border:1px solid #bae0ff;border-radius:6px;padding:8px 10px;text-align:center}';
-      html += '.resumo-card .val{font-size:22px;font-weight:700;color:#0078d4;font-family:"Barlow Condensed",Arial,sans-serif}';
-      html += '.resumo-card .lbl{font-size:10px;color:#555;margin-top:2px}';
-      html += '.svg-wrap{width:100%;overflow:hidden;margin-bottom:10px;border:1px solid #e0e0e0;border-radius:4px;padding:6px;box-sizing:border-box}';
-      html += '.svg-wrap svg{max-width:100%;height:auto}';
-      html += '@media print{button{display:none}.no-print{display:none}}';
-      html += '</style></head><body>';
-      html += '<div class="header"><div><h1>'+obra.Title+'</h1><div style="font-size:12px;color:#555">Relatório Mensal de Obra — '+mesNome+' de '+ano+'</div></div>';
-      html += '<div class="header-right">Gerado em: '+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'<br>Responsável: '+(obra.Responsaveis||'—')+'</div></div>';
-      html += '<h2>Perfil de Execução — Produção do Mês</h2>';
-      html += '<div class="svg-wrap">'+svgHtml+'</div>';
-      html += '<h2>Resumo do Mês</h2>';
-      html += '<div class="resumo-grid">';
-      html += '<div class="resumo-card"><div class="val">'+praticaveis+'</div><div class="lbl">Dias Praticáveis</div></div>';
-      html += '<div class="resumo-card"><div class="val">'+imprat+'</div><div class="lbl">Dias Impraticáveis</div></div>';
-      html += '<div class="resumo-card"><div class="val">'+semip+'</div><div class="lbl">Dias Parciais</div></div>';
-      html += '<div class="resumo-card"><div class="val">'+dieselTot.toFixed(0)+' L</div><div class="lbl">Diesel Consumido</div></div>';
+      // ===== CONTADORES =====
+      var praticaveis=0, semip=0, imprat=0, dieselTot=0;
+      for(var dc=1;dc<=totalDias;dc++){
+        var dsc=mesStr+'-'+String(dc).padStart(2,'0');
+        var fc=fichasMap[dsc]; if(!fc) continue;
+        var dowc=new Date(dsc+'T12:00:00').getDay(), fdsc=dowc===0||dowc===6;
+        var cMc=fc.CondicaoManha, cTc=fc.CondicaoTarde;
+        if(!fdsc){
+          if(cMc==='impraticavel'&&cTc==='impraticavel') imprat++;
+          else if(cMc==='impraticavel'||cTc==='impraticavel') semip++;
+          else if(cMc||cTc) praticaveis++;
+        }
+        if(fc.DieselConsumo) dieselTot+=parseFloat(fc.DieselConsumo)||0;
+      }
+
+      // ===== EXECUÇÃO % (acumulado + mês) =====
+      var servicos = getServicosObra();
+      var execRows = servicos.map(function(sv){
+        var projSet = new Set(); APP.projeto.filter(function(p){return p.Servico===sv;}).forEach(function(p){projSet.add(p.Estaca);});
+        var allSet  = new Set(); (APP.execucao||[]).filter(function(e){return e.Servico===sv;}).forEach(function(e){allSet.add(e.Estaca);});
+        var mesSet  = new Set(); execMes.filter(function(e){return e.Servico===sv;}).forEach(function(e){mesSet.add(e.Estaca);});
+        var pct = projSet.size>0 ? Math.min(100,Math.round(allSet.size/projSet.size*100)) : (allSet.size>0?100:null);
+        return {sv:sv, proj:projSet.size, all:allSet.size, mes:mesSet.size, pct:pct};
+      }).filter(function(r){return r.proj>0||r.all>0||r.mes>0;});
+
+      // ===== CALENDÁRIO (inline styles — sem CSS externo) =====
+      var CCAL = {praticavel:'#3A9C4E', semi:'#F9A825', imprat:'#E65100', fdsReg:'#78909C', fdsAuto:'#cdd0d6', vazio:'#e8eaed'};
+      var SNOMES = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+      var primeiroDia = new Date(ano, mesDiario, 1).getDay();
+      var calHtml = '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+      SNOMES.forEach(function(sn){ calHtml+='<div style="text-align:center;font-size:9px;font-weight:700;color:#555;padding:2px 0;text-transform:uppercase;letter-spacing:.3px">'+sn+'</div>'; });
+      for(var pi=0;pi<primeiroDia;pi++) calHtml+='<div></div>';
+      for(var dg=1;dg<=totalDias;dg++){
+        var dsg=mesStr+'-'+String(dg).padStart(2,'0');
+        var fg=fichasMap[dsg];
+        var dowg=new Date(dsg+'T12:00:00').getDay(), fdsg=dowg===0||dowg===6;
+        var bg, txc='#fff';
+        if(!fg){ bg=fdsg?CCAL.fdsAuto:CCAL.vazio; txc=fdsg?'#666':'#bbb'; }
+        else if(fdsg){ bg=CCAL.fdsReg; }
+        else{
+          var cMg=fg.CondicaoManha, cTg=fg.CondicaoTarde;
+          if(cMg==='impraticavel'&&cTg==='impraticavel') bg=CCAL.imprat;
+          else if(cMg==='impraticavel'||cTg==='impraticavel') bg=CCAL.semi;
+          else bg=CCAL.praticavel;
+        }
+        var icg=intercPorData[dsg]||{};
+        var bdgs='';
+        if(icg.equip||(eqPorData[dsg]>0)) bdgs+='<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;background:#7B1A1A;color:#fff;font-size:6px;border-radius:2px;padding:0 2px;margin:0 1px;font-weight:700;line-height:12px">E</span>';
+        if(icg.material) bdgs+='<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;background:#5D4037;color:#fff;font-size:6px;border-radius:2px;padding:0 2px;margin:0 1px;font-weight:700;line-height:12px">M</span>';
+        if(icg.outros)   bdgs+='<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;background:#37474F;color:#fff;font-size:6px;border-radius:2px;padding:0 2px;margin:0 1px;font-weight:700;line-height:12px">O</span>';
+        var clSym='';
+        if(fg){ var sMg=fg.ClimaManha==='claro'?'☀':'🌧', sTg=fg.ClimaTarde==='claro'?'☀':'🌧'; if(fg.ClimaManha&&fg.ClimaTarde) clSym='<div style="font-size:8px;margin-top:1px;opacity:.9">'+sMg+' '+sTg+'</div>'; }
+        calHtml+='<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+bg+';color:'+txc+';border-radius:4px;padding:2px 1px 3px;text-align:center;min-height:40px;position:relative">'+
+          '<div style="font-size:8px;font-weight:700;text-align:right;padding-right:3px;opacity:.85;line-height:1.2">'+dg+'</div>'+
+          clSym+(bdgs?'<div style="margin-top:1px">'+bdgs+'</div>':'')+
+        '</div>';
+      }
+      calHtml+='</div>';
+
+      // Legenda
+      function legItem(cor, txt){ return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;color:#444"><span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:10px;height:10px;background:'+cor+';border-radius:2px;flex-shrink:0"></span>'+txt+'</span>'; }
+      var legendHtml = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">'+
+        legItem('#3A9C4E','Praticável')+legItem('#F9A825','Parcial')+legItem('#E65100','Impraticável')+
+        legItem('#78909C','Fim de semana')+legItem('#cdd0d6','Sem registro')+
+        '<span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;color:#444"><span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;background:#7B1A1A;color:#fff;font-size:6px;border-radius:2px;padding:0 3px;font-weight:700;line-height:11px">E</span>Equip. parado</span>'+
+      '</div>';
+
+      // ===== OBSERVAÇÕES DO PERÍODO =====
+      var obsHtml = '';
+      var fichasComObs = fichasMes.filter(function(f){ return (f.Observacao||'').trim(); });
+      fichasComObs.sort(function(a,b){ return (a.Data||'') < (b.Data||'') ? -1 : 1; });
+      fichasComObs.forEach(function(f){
+        var dFmt=(f.Data||'').substring(0,10).split('-').reverse().join('/');
+        obsHtml+='<div style="padding:7px 10px 7px 12px;border-left:3px solid #0078d4;margin-bottom:6px;background:#f5f8ff;border-radius:0 6px 6px 0">'+
+          '<div style="font-size:9px;font-weight:700;color:#003e7e;text-transform:uppercase;letter-spacing:.3px;margin-bottom:2px">'+dFmt+'</div>'+
+          '<div style="font-size:10px;color:#333;line-height:1.5">'+f.Observacao.replace(/\n/g,'<br>')+'</div>'+
+        '</div>';
+      });
+
+      // ===== DIÁRIO DETALHADO =====
+      var dNomes={praticavel:'Praticável', impraticavel:'Impraticável'};
+      var linhasDiario='';
+      for(var dd=1;dd<=totalDias;dd++){
+        var dsd=mesStr+'-'+String(dd).padStart(2,'0');
+        var fd=fichasMap[dsd];
+        var dowd=new Date(dsd+'T12:00:00').getDay(), fdsd=dowd===0||dowd===6;
+        var dtFmt=String(dd).padStart(2,'0')+'/'+mm+'/'+ano;
+        var semNome=SNOMES[dowd];
+        if(!fd){ linhasDiario+='<tr style="color:#ccc"><td>'+dtFmt+'</td><td>'+semNome+'</td><td colspan="4" style="text-align:center;font-size:10px">—</td></tr>'; continue; }
+        var cMd=fd.CondicaoManha||'', cTd=fd.CondicaoTarde||'';
+        var condStr=(cMd===cTd&&cMd)?dNomes[cMd]||cMd:((dNomes[cMd]||cMd)+(cTd&&cTd!==cMd?' / '+(dNomes[cTd]||cTd):''));
+        var sMd=fd.ClimaManha==='claro'?'☀':fd.ClimaManha==='chuvoso'?'🌧':'';
+        var sTd=fd.ClimaTarde==='claro'?'☀':fd.ClimaTarde==='chuvoso'?'🌧':'';
+        var climaStr=(sMd&&sTd&&sMd===sTd)?sMd+' Todo dia':(sMd&&sTd?sMd+' / '+sTd:sMd||sTd);
+        var rowBg=fdsd?'background:#f5f5f5':cMd==='impraticavel'&&cTd==='impraticavel'?'background:#fff0ee':cMd==='praticavel'&&cTd==='praticavel'?'background:#f0fff4':'';
+        var icd=intercPorData[dsd]||{};
+        var pendParts=[];
+        if(icd.equip||(eqPorData[dsd]>0)) pendParts.push('<span style="color:#7B1A1A;font-weight:600">Equip. parado</span>');
+        if(icd.material) pendParts.push('<span style="color:#5D4037;font-weight:600">Falta material</span>');
+        if(icd.outros)   pendParts.push('<span style="color:#37474F;font-weight:600">Outros</span>');
+        var atv=(fd.AtividadesRealizadas||'').replace(/\n/g,' ').substring(0,70)+(fd.AtividadesRealizadas&&fd.AtividadesRealizadas.length>70?'…':'');
+        linhasDiario+='<tr style="'+rowBg+'"><td style="white-space:nowrap">'+dtFmt+'</td><td>'+semNome+'</td><td>'+climaStr+'</td><td>'+condStr+'</td><td style="font-size:10px;color:#333">'+atv+'</td><td style="font-size:10px">'+pendParts.join('<br>')+'</td></tr>';
+      }
+
+      // ===== PENDÊNCIAS =====
+      var linhasPend='';
+      intercMes.forEach(function(ic){
+        var cor=CORES_INTERC[ic.TipoInterc]||'#555';
+        var ini=(ic.DataInicio||'').substring(0,10).split('-').reverse().join('/');
+        var fim=(ic.DataFim||'').substring(0,10); var fimFmt=fim?fim.split('-').reverse().join('/'):'Em aberto';
+        var status=fim?'<span style="color:#2E7D32;font-weight:700">✓ Resolvida</span>':'<span style="color:#c62828;font-weight:700">⚠ Em aberto</span>';
+        linhasPend+='<tr>'+
+          '<td><span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:8px;height:8px;border-radius:50%;background:'+cor+';margin-right:5px;vertical-align:middle"></span>'+(NOMES_INTERC[ic.TipoInterc]||ic.TipoInterc)+'</td>'+
+          '<td>'+(ic.Descricao||'—')+'</td><td style="white-space:nowrap">'+ini+'</td><td style="white-space:nowrap">'+fimFmt+'</td><td>'+status+'</td></tr>';
+      });
+
+      // ===== HTML FINAL =====
+      var html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">'+
+        '<title>'+obra.Title+' — Relatório '+mesNome+'/'+ano+'</title>'+
+        '<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">'+
+        '<style>'+
+          '@page{size:A4 portrait;margin:12mm 14mm 18mm 14mm}'+
+          'body{font-family:"Segoe UI",Arial,sans-serif;font-size:11px;color:#1a1a2e;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+          'h2{font-family:"Barlow Condensed",Arial,sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#003e7e;border-bottom:1.5px solid #0078d4;padding-bottom:3px;margin:14px 0 8px;page-break-after:avoid}'+
+          'table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:8px}'+
+          'th{-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#003e7e;color:#fff;padding:5px 7px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700}'+
+          'td{padding:3px 7px;border-bottom:1px solid #eee;vertical-align:top}'+
+          'tr:last-child td{border-bottom:none}'+
+          '.page-break{page-break-before:always}'+
+          '@media print{.no-print{display:none!important}}'+
+        '</style>'+
+        '</head><body>';
+
+      // ── CABEÇALHO ──────────────────────────────────────────────────────
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:10px;border-bottom:3px solid #003e7e;margin-bottom:14px">';
+      html += '<div>';
+      html += '<div style="font-family:\'Barlow Condensed\',Arial,sans-serif;font-size:28px;font-weight:800;color:#003e7e;letter-spacing:.5px;text-transform:uppercase;line-height:1">'+obra.Title+'</div>';
+      html += '<div style="font-size:11px;color:#555;margin-top:1px">Relatório Mensal de Acompanhamento de Obra</div>';
+      html += '<div style="font-family:\'Barlow Condensed\',Arial,sans-serif;font-size:16px;font-weight:700;color:#0078d4;margin-top:2px;text-transform:uppercase;letter-spacing:.5px">'+mesNome+' de '+ano+'</div>';
       html += '</div>';
-      if(linhasProd) { html += '<h2>Produção por Serviço</h2><table><thead><tr><th>Serviço</th><th style="text-align:right">Estacas</th><th style="text-align:right">Extensão</th><th style="text-align:right">Km</th></tr></thead><tbody>'+linhasProd+'</tbody></table>'; }
-      html += '<h2>Diário do Mês</h2>';
-      html += '<table><thead><tr><th>Data</th><th>Dia</th><th>Clima</th><th>Condição</th><th>Atividades</th><th>Pendências</th></tr></thead><tbody>'+linhasDiario+'</tbody></table>';
-      if(linhasPend) { html += '<h2>Pendências do Período</h2><table><thead><tr><th>Tipo</th><th>Descrição</th><th>Início</th><th>Fim</th><th>Status</th></tr></thead><tbody>'+linhasPend+'</tbody></table>'; }
-      html += '<div style="margin-top:20px;border-top:1px solid #ddd;padding-top:10px;font-size:10px;color:#aaa;display:flex;justify-content:space-between"><span>'+obra.Title+' — '+mesNome+'/'+ano+'</span><span>Sistema de Acompanhamento de Obras</span></div>';
+      html += '<div style="text-align:right;font-size:10px;color:#666;line-height:1.8">';
+      html += '<div>Gerado em: <strong>'+new Date().toLocaleDateString('pt-BR')+' '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'</strong></div>';
+      html += '<div>Emitido por: '+((APP.usuario&&APP.usuario.email)||'—')+'</div>';
+      html += '<div>Trecho: <strong>'+estakaParaKm(obra.EstacaInicial||0)+' — '+estakaParaKm(obra.EstacaFinal||0)+'</strong></div>';
+      html += '</div></div>';
+
+      // ── LAYOUT PRINCIPAL: calendário (esq) + resumo+execução (dir) ─────
+      html += '<div style="display:grid;grid-template-columns:1fr 175px;gap:16px;align-items:start">';
+
+      // Coluna esquerda: calendário
+      html += '<div>';
+      html += '<h2>Calendário de Obras — '+mesNome+'/'+ano+'</h2>';
+      html += legendHtml;
+      html += calHtml;
+      html += '</div>';
+
+      // Coluna direita: resumo + execução
+      html += '<div>';
+      html += '<h2>Resumo do Mês</h2>';
+      function card(val, lbl, bg, fg){ fg=fg||'#fff'; return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+bg+';border-radius:6px;padding:8px 6px;text-align:center;margin-bottom:6px"><div style="font-family:\'Barlow Condensed\',Arial,sans-serif;font-size:24px;font-weight:800;color:'+fg+';line-height:1">'+val+'</div><div style="font-size:9px;color:'+fg+';opacity:.8;margin-top:1px;text-transform:uppercase;letter-spacing:.3px">'+lbl+'</div></div>'; }
+      html += card(praticaveis,'Praticáveis','#2E7D32');
+      html += card(imprat,'Impraticáveis','#B71C1C');
+      html += card(semip,'Parciais','#E65100');
+      html += card(dieselTot.toFixed(0)+' L','Diesel','#1565C0');
+
+      if(execRows.length){
+        html += '<h2>Avanço de Execução</h2>';
+        execRows.forEach(function(r){
+          var cor=CORES[r.sv]||'#888';
+          var pctStr=r.pct!==null?r.pct+'%':'s/d';
+          var barW=r.pct!==null?r.pct:0;
+          html += '<div style="margin-bottom:8px">';
+          html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">';
+          html += '<span style="font-size:9px;font-weight:700;color:#333;display:flex;align-items:center;gap:3px"><span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:8px;height:8px;border-radius:2px;background:'+cor+'"></span>'+NOMES[r.sv]+'</span>';
+          html += '<span style="font-size:11px;font-weight:800;color:'+cor+';font-family:\'Barlow Condensed\',Arial,sans-serif">'+pctStr+'</span>';
+          html += '</div>';
+          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:5px;background:#e8e8e8;border-radius:3px"><div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:5px;background:'+cor+';width:'+barW+'%;border-radius:3px"></div></div>';
+          html += '<div style="font-size:9px;color:#888;margin-top:1px">Mês: '+(r.mes*20)+'m &nbsp;|&nbsp; Total: '+(r.all*20)+'m</div>';
+          html += '</div>';
+        });
+      }
+      html += '</div>'; // fim col direita
+      html += '</div>'; // fim grid
+
+      // ── OBSERVAÇÕES ────────────────────────────────────────────────────
+      if(obsHtml){
+        html += '<h2>Observações do Período</h2>';
+        html += obsHtml;
+      }
+
+      // ── DIÁRIO DETALHADO ───────────────────────────────────────────────
+      html += '<h2 class="page-break">Diário de Obras — '+mesNome+'/'+ano+'</h2>';
+      html += '<table><thead><tr><th style="width:70px">Data</th><th style="width:30px">Dia</th><th style="width:70px">Clima</th><th style="width:100px">Condição</th><th>Atividades Realizadas</th><th style="width:90px">Ocorrências</th></tr></thead><tbody>'+linhasDiario+'</tbody></table>';
+
+      // ── PENDÊNCIAS ─────────────────────────────────────────────────────
+      if(linhasPend){
+        html += '<h2>Pendências e Ocorrências do Período</h2>';
+        html += '<table><thead><tr><th style="width:110px">Tipo</th><th>Descrição</th><th style="width:65px">Início</th><th style="width:65px">Fim</th><th style="width:80px">Status</th></tr></thead><tbody>'+linhasPend+'</tbody></table>';
+      }
+
+      // ── RODAPÉ ─────────────────────────────────────────────────────────
+      html += '<div style="position:fixed;bottom:6mm;left:14mm;right:14mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:9px;color:#aaa">';
+      html += '<span>'+obra.Title+' — '+mesNome+'/'+ano+'</span>';
+      html += '<span>Sistema de Acompanhamento de Obras — Pavimentação</span>';
+      html += '</div>';
       html += '</body></html>';
 
-      var win = window.open('', '_blank', 'width=900,height=700');
+      var win = window.open('', '_blank', 'width=960,height=750');
+      if(!win){ alert('Permita pop-ups para gerar o relatório.'); return; }
       win.document.write(html);
       win.document.close();
-      win.onload = function(){ win.focus(); setTimeout(function(){ win.print(); }, 400); };
+      win.onload = function(){ win.focus(); setTimeout(function(){ win.print(); }, 600); };
     }
 
     function gerarSvgFaixas(dataIni, dataFim) {
