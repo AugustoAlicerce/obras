@@ -1209,7 +1209,7 @@
     var SP = {
       async spFetch(ep, opts) { var tk = await getToken(); var url = SHAREPOINT_SITE_URL + '/_api' + ep; var o = { method: (opts && opts.method) || 'GET', headers: { 'Accept': 'application/json;odata=nometadata', 'Content-Type': 'application/json;odata=nometadata', 'Authorization': 'Bearer ' + tk } }; if (opts && opts.headers) Object.keys(opts.headers).forEach(function (k) { o.headers[k] = opts.headers[k] }); if (opts && opts.body) o.body = opts.body; dbg((o.method) + ' ' + ep); var r = await fetch(url, o); if (!r.ok) { var t = await r.text(); dbg('ERRO ' + r.status + ': ' + t.substring(0, 300), 'err'); throw new Error('SP erro ' + r.status) } var ct = r.headers.get('content-type') || ''; if (ct.indexOf('json') >= 0) { var d = await r.json(); dbg('OK', 'ok'); return d } return null },
       async getDigest() { var d = await this.spFetch('/contextinfo', { method: 'POST' }); return d.FormDigestValue },
-      async listarItens(l, f) { var ep = "/web/lists/getbytitle('" + l + "')/items?$top=5000"; if (f) ep += '&$filter=' + encodeURIComponent(f); var d = await this.spFetch(ep); return d.value || [] },
+      async listarItens(l, f, select) { var ep = "/web/lists/getbytitle('" + l + "')/items?$top=5000"; if (f) ep += '&$filter=' + encodeURIComponent(f); if (select) ep += '&$select=' + encodeURIComponent(select); var d = await this.spFetch(ep); return d.value || [] },
       async criarItem(l, c) { var dg = await this.getDigest(); return await this.spFetch("/web/lists/getbytitle('" + l + "')/items", { method: 'POST', headers: { 'X-RequestDigest': dg }, body: JSON.stringify(c) }) },
       async atualizarItem(l, id, c) { var dg = await this.getDigest(); return await this.spFetch("/web/lists/getbytitle('" + l + "')/items(" + id + ")", { method: 'POST', headers: { 'X-RequestDigest': dg, 'X-HTTP-Method': 'MERGE', 'If-Match': '*' }, body: JSON.stringify(c) }) },
       async deletarItem(l, id) { var dg = await this.getDigest(); return await this.spFetch("/web/lists/getbytitle('" + l + "')/items(" + id + ")", { method: 'POST', headers: { 'X-RequestDigest': dg, 'X-HTTP-Method': 'DELETE', 'If-Match': '*' } }) },
@@ -1229,29 +1229,29 @@
        DATA API
        ================================================================= */
     var DataAPI = {
-      async listarObras() { return SP.listarItens(LISTA_OBRAS) },
+      async listarObras() { return SP.listarItens(LISTA_OBRAS, null, 'Id,Title,Status,Servicos,OrdemServicos,Responsaveis,EstacaInicial,EstacaFinal') },
       async atualizarObra(id, campos) { return SP.atualizarItem(LISTA_OBRAS, id, campos) },
-      async listarProjeto(obraId) { return SP.listarItens(LISTA_PROJETO, 'ObraId eq ' + obraId) },
+      async listarProjeto(obraId) { return SP.listarItens(LISTA_PROJETO, 'ObraId eq ' + obraId, 'Id,ObraId,Estaca,Servico,NumCamadas') },
       async salvarProjeto(obraId, estaca, servico, numCamadas) {
-        var ex = await SP.listarItens(LISTA_PROJETO, 'ObraId eq ' + obraId + ' and Estaca eq ' + estaca + " and Servico eq '" + servico + "'");
+        var ex = await SP.listarItens(LISTA_PROJETO, 'ObraId eq ' + obraId + ' and Estaca eq ' + estaca + " and Servico eq '" + servico + "'", 'Id');
         if (ex.length > 0) return SP.atualizarItem(LISTA_PROJETO, ex[0].Id, { NumCamadas: numCamadas });
         return SP.criarItem(LISTA_PROJETO, { Title: obraId + '-E' + estaca + '-' + servico, ObraId: obraId, Estaca: estaca, Servico: servico, NumCamadas: numCamadas })
       },
-      async listarExecucao(obraId) { return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId) },
+      async listarExecucao(obraId) { return SP.listarItens(LISTA_EXECUCAO, 'ObraId eq ' + obraId, 'Id,ObraId,DataExecucao,Estaca,Servico,NumCamadasExecutadas,Responsavel,Observacao') },
       async salvarExecucao(obraId, data, estaca, servico, numCamadas, responsavel, obs) {
         return SP.criarItem(LISTA_EXECUCAO, { Title: obraId + '-E' + estaca + '-' + servico + '-' + data, ObraId: obraId, DataExecucao: data, Estaca: estaca, Servico: servico, NumCamadasExecutadas: numCamadas, Responsavel: responsavel, Observacao: obs || '' })
       },
-      async listarEventos(obraId) { return SP.listarItens(LISTA_EVENTOS, 'ObraId eq ' + obraId) },
-      async listarDiario(obraId) { return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId) },
+      async listarEventos(obraId) { return SP.listarItens(LISTA_EVENTOS, 'ObraId eq ' + obraId, 'Id,ObraId,EstacaInicial,EstacaFinal,TipoEvento,Status,Observacao,DataExecucao') },
+      async listarDiario(obraId) { return SP.listarItens(LISTA_DIARIO, 'ObraId eq ' + obraId, 'Id,ObraId,Data,ClimaManha,ClimaTarde,CondicaoManha,CondicaoTarde,DieselConsumo,DieselEstoque,AtividadesRealizadas,SolicitacaoEquipamento,SolicitacaoLida,Observacao') },
       async salvarDiario(obraId, data, campos) {
         var title = obraId + '-' + data;
-        var ex = await SP.listarItens(LISTA_DIARIO, "ObraId eq " + obraId + " and Title eq '" + title + "'");
+        var ex = await SP.listarItens(LISTA_DIARIO, "ObraId eq " + obraId + " and Title eq '" + title + "'", 'Id');
         var payload = Object.assign({ Title: title, ObraId: obraId, Data: data }, campos);
         if (ex.length > 0) { await SP.atualizarItem(LISTA_DIARIO, ex[0].Id, campos); return ex[0].Id; }
         var r = await SP.criarItem(LISTA_DIARIO, payload); return r.Id || r.d && r.d.Id;
       },
       async marcarSolicitacaoLida(diarioId) { return SP.atualizarItem(LISTA_DIARIO, diarioId, {SolicitacaoLida: true}) },
-      async listarDiarioEq(obraId) { return SP.listarItens(LISTA_DIARIO_EQ, 'ObraId eq ' + obraId) },
+      async listarDiarioEq(obraId) { return SP.listarItens(LISTA_DIARIO_EQ, 'ObraId eq ' + obraId, 'Id,ObraId,Data,Equipamento,Descricao') },
       async criarEquipamentoQuebrado(obraId, data, eq, desc, n) {
         return SP.criarItem(LISTA_DIARIO_EQ, {Title: obraId+'-'+data+'-'+n, ObraId: obraId, Data: data, Equipamento: eq, Descricao: desc});
       },
@@ -1290,7 +1290,7 @@
       async listarAnexos(lista, itemId) { return SP.listarAnexos(lista, itemId) },
       async uploadAnexo(lista, itemId, fileName, buffer) { return SP.uploadAnexo(lista, itemId, fileName, buffer) },
       async deletarAnexo(lista, itemId, fileName) { return SP.deletarAnexo(lista, itemId, fileName) },
-      async listarIntercorrencias(obraId) { return SP.listarItens(LISTA_INTERCORRENCIAS, 'ObraId eq ' + obraId) },
+      async listarIntercorrencias(obraId) { return SP.listarItens(LISTA_INTERCORRENCIAS, 'ObraId eq ' + obraId, 'Id,ObraId,TipoInterc,Descricao,DataInicio,DataFim') },
       async criarIntercorrencia(obraId, tipo, descricao, dataInicio) {
         return SP.criarItem(LISTA_INTERCORRENCIAS, { Title: obraId+'-'+tipo+'-'+dataInicio, ObraId: obraId, TipoInterc: tipo, Descricao: descricao || '', DataInicio: dataInicio });
       },
@@ -2334,14 +2334,15 @@
       (APP.diarioEq || []).forEach(function(e) { var d=(e.Data||'').substring(0,10); if(d){if(!eqPorData[d])eqPorData[d]=0; eqPorData[d]++;} });
 
       // Pré-calcular intercorrências ativas por data do mês
+      var hojeStr = hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0')+'-'+String(hoje.getDate()).padStart(2,'0');
       var totalDias = new Date(anoDiario, mesDiario + 1, 0).getDate();
       var intercPorData = {};
       (APP.intercorrencias || []).forEach(function(ic) {
         var ini = (ic.DataInicio || '').substring(0, 10);
-        var fim = (ic.DataFim || '').substring(0, 10);
+        var fim = (ic.DataFim || '').substring(0, 10) || hojeStr;
         for (var d2 = 1; d2 <= totalDias; d2++) {
           var ds = anoDiario+'-'+String(mesDiario+1).padStart(2,'0')+'-'+String(d2).padStart(2,'0');
-          if (ds >= ini && (!fim || ds <= fim)) {
+          if (ds >= ini && ds <= fim) {
             if (!intercPorData[ds]) intercPorData[ds] = {};
             intercPorData[ds][ic.TipoInterc] = true;
           }
@@ -3378,7 +3379,7 @@
        ================================================================= */
     async function carregarConfig() {
       try {
-        var items = await SP.listarItens(LISTA_CONFIG);
+        var items = await SP.listarItens(LISTA_CONFIG, null, 'Id,Title,Valor');
         items.forEach(function(item) {
           var vals = (item.Valor||'').split(';').map(function(s){return s.trim();}).filter(Boolean);
           if (item.Title === 'ADMIN_EMAILS' && vals.length) CONFIG.adminEmails = vals;
@@ -3392,7 +3393,7 @@
     }
 
     async function salvarConfigItem(chave, valor) {
-      var items = await SP.listarItens(LISTA_CONFIG, "Title eq '"+chave+"'");
+      var items = await SP.listarItens(LISTA_CONFIG, "Title eq '"+chave+"'", 'Id');
       if (items.length) return SP.atualizarItem(LISTA_CONFIG, items[0].Id, { Valor: valor });
       return SP.criarItem(LISTA_CONFIG, { Title: chave, Valor: valor });
     }
@@ -3725,6 +3726,9 @@
 
     function voltarPainelObras() {
       fecharFichaDiario();
+      APP.projeto = []; APP.execucao = []; APP.eventos = [];
+      APP.diario = []; APP.diarioEq = []; APP.intercorrencias = [];
+      APP.obraAtual = null;
       document.getElementById('app-main').style.display = 'none';
       mostrarPainelObras();
     }
