@@ -3979,11 +3979,13 @@
       var servicos = getServicosObra();
       var execRows = servicos.map(function(sv){
         var projSet = new Set(); APP.projeto.filter(function(p){return p.Servico===sv;}).forEach(function(p){projSet.add(p.Estaca);});
-        // Acumulado até o último dia deste mês (não inclui execuções de meses futuros)
+        // Acumulado até o último dia deste mês
         var allSet  = new Set(); (APP.execucao||[]).filter(function(e){return e.Servico===sv && (e.DataExecucao||'').substring(0,10)<=mesFimStr;}).forEach(function(e){allSet.add(e.Estaca);});
+        // Somente este mês
         var mesSet  = new Set(); execMes.filter(function(e){return e.Servico===sv;}).forEach(function(e){mesSet.add(e.Estaca);});
-        var pct = projSet.size>0 ? Math.min(100,Math.round(allSet.size/projSet.size*100)) : (allSet.size>0?100:null);
-        return {sv:sv, proj:projSet.size, all:allSet.size, mes:mesSet.size, pct:pct};
+        var acumPct = projSet.size>0 ? Math.min(100,Math.round(allSet.size/projSet.size*100))  : (allSet.size>0?100:null);
+        var mesPct  = projSet.size>0 ? Math.min(100,Math.round(mesSet.size/projSet.size*100))  : (mesSet.size>0?100:null);
+        return {sv:sv, proj:projSet.size, all:allSet.size, mes:mesSet.size, acumPct:acumPct, mesPct:mesPct};
       }).filter(function(r){return r.proj>0||r.all>0||r.mes>0;});
 
       // ===== CALENDÁRIO (inline styles — sem CSS externo) =====
@@ -4130,15 +4132,29 @@
         html += '<h2>Avanço de Execução</h2>';
         execRows.forEach(function(r){
           var cor=CORES[r.sv]||'#888';
-          var pctStr=r.pct!==null?r.pct+'%':'s/d';
-          var barW=r.pct!==null?r.pct:0;
-          html += '<div style="margin-bottom:8px">';
-          html += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">';
-          html += '<span style="font-size:9px;font-weight:700;color:#333;display:flex;align-items:center;gap:3px"><span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:8px;height:8px;border-radius:2px;background:'+cor+'"></span>'+NOMES[r.sv]+'</span>';
-          html += '<span style="font-size:11px;font-weight:800;color:'+cor+';font-family:\'Barlow Condensed\',Arial,sans-serif">'+pctStr+'</span>';
-          html += '</div>';
-          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:5px;background:#e8e8e8;border-radius:3px"><div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:5px;background:'+cor+';width:'+barW+'%;border-radius:3px"></div></div>';
-          html += '<div style="font-size:9px;color:#888;margin-top:1px">Mês: '+(r.mes*20)+'m &nbsp;|&nbsp; Total: '+(r.all*20)+'m</div>';
+          var acumStr = r.acumPct!==null ? r.acumPct+'%' : 's/d';
+          var mesStr2 = r.mesPct!==null  ? r.mesPct+'%'  : '0%';
+          var barW    = r.acumPct!==null ? r.acumPct : 0;
+          var barMes  = r.mesPct!==null  ? r.mesPct  : 0;
+          html += '<div style="margin-bottom:10px">';
+          // Nome do serviço
+          html += '<div style="font-size:9px;font-weight:700;color:#333;display:flex;align-items:center;gap:3px;margin-bottom:4px">'+
+            '<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;display:inline-block;width:8px;height:8px;border-radius:2px;background:'+cor+'"></span>'+
+            NOMES[r.sv]+'</div>';
+          // Linha: No mês
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'+
+            '<span style="font-size:8px;color:#666;text-transform:uppercase;letter-spacing:.3px">No mês</span>'+
+            '<span style="font-size:11px;font-weight:800;color:'+cor+';font-family:\'Barlow Condensed\',Arial,sans-serif">'+mesStr2+'</span>'+
+          '</div>';
+          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:#e8e8e8;border-radius:3px;margin-bottom:4px">'+
+            '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:'+cor+';opacity:.5;width:'+barMes+'%;border-radius:3px"></div></div>';
+          // Linha: Acumulado
+          html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'+
+            '<span style="font-size:8px;color:#666;text-transform:uppercase;letter-spacing:.3px">Acumulado</span>'+
+            '<span style="font-size:11px;font-weight:800;color:'+cor+';font-family:\'Barlow Condensed\',Arial,sans-serif">'+acumStr+'</span>'+
+          '</div>';
+          html += '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:#e8e8e8;border-radius:3px">'+
+            '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:'+cor+';width:'+barW+'%;border-radius:3px"></div></div>';
           html += '</div>';
         });
       }
