@@ -1631,6 +1631,9 @@
       var mxT = 1;
       APP.projeto.filter(function (p) { return p.Servico === 'terra' }).forEach(function (p) { if (p.NumCamadas > mxT) mxT = p.NumCamadas });
 
+      var G = 2;
+      var CH = 22;
+
       // Pré-calcular offset Y de cada serviço dentro da área de serviços
       var servRowOffset = {};
       var yAccum = 0;
@@ -1645,8 +1648,6 @@
       var rightPad = 8;
       var CW = cwGlobal || Math.max(14, Math.floor(((document.getElementById('faixas-container').clientWidth || 1200) - 20 - L - rightPad) / STRIP_CELLS));
       var W = L + numCel * CW + rightPad;
-      var G = 2;
-      var CH = 22;
 
       // Eventos filtrados para esta faixa
       var evtsFilt = APP.eventos.filter(function (ev) {
