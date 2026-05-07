@@ -1472,7 +1472,8 @@
       ids.forEach(function (id) {
         var sel = document.getElementById(id); if (!sel) return;
         var isFilter = id === 'h-serv' || id === 'pf-serv';
-        var html = isFilter ? '<option value="">Todos</option>' : '';
+        var isReg = id === 'r-serv';
+        var html = isFilter ? '<option value="">Todos</option>' : (isReg ? '<option value="" disabled selected>Selecione o serviço…</option>' : '');
         servicos.forEach(function (s) { html += '<option value="' + s + '">' + NOMES[s] + '</option>' });
         sel.innerHTML = html;
       });
@@ -1622,19 +1623,26 @@
 
     function renderFaixaSVG(celIni, celFim, servicos, execFiltrada, cwGlobal) {
       var ns = 'http://www.w3.org/2000/svg';
-      var temTerra = servicos.indexOf('terra') >= 0;
-      var topServs = servicos.filter(function (s) { return s !== 'terra' }).reverse();
+      // Todos os serviços em ordem reversa (último da lista = topo do SVG, primeiro = base)
+      var topServs = servicos.slice().reverse();
       var SR = topServs.length;
 
+      // Terra pode ter múltiplas camadas — calcular o máximo para reservar espaço
       var mxT = 1;
-      if (temTerra) {
-        APP.projeto.filter(function (p) { return p.Servico === 'terra' }).forEach(function (p) { if (p.NumCamadas > mxT) mxT = p.NumCamadas });
-      }
+      APP.projeto.filter(function (p) { return p.Servico === 'terra' }).forEach(function (p) { if (p.NumCamadas > mxT) mxT = p.NumCamadas });
+
+      // Pré-calcular offset Y de cada serviço dentro da área de serviços
+      var servRowOffset = {};
+      var yAccum = 0;
+      topServs.forEach(function(s) {
+        servRowOffset[s] = yAccum;
+        yAccum += (s === 'terra' ? mxT : 1) * (CH + G);
+      });
+      var totalServH = yAccum;
 
       var numCel = celFim - celIni + 1;
       var L = 104; // espaço suficiente para "Reciclagem" e "Imprimação"
       var rightPad = 8;
-      // usa CW global (mesmo para todas as faixas); largura total varia pelo nº real de células
       var CW = cwGlobal || Math.max(14, Math.floor(((document.getElementById('faixas-container').clientWidth || 1200) - 20 - L - rightPad) / STRIP_CELLS));
       var W = L + numCel * CW + rightPad;
       var G = 2;
@@ -1664,8 +1672,7 @@
       if (evtsFilt.length > 0) Y += 8;
       var KM_LABEL_Y = Y + 13; Y += 20;
       var SERV_LINE_Y = Y; Y += 4;
-      var SERV_START = Y; Y += SR * (CH + G); Y += 10;
-      var TERRA_START = Y; Y += temTerra ? mxT * (CH + G) : 0; Y += 16;
+      var SERV_START = Y; Y += totalServH + 16;
       var H = Y;
 
       var svg = document.createElementNS(ns, 'svg');
@@ -1763,64 +1770,62 @@
       // separador
       var sep2 = document.createElementNS(ns, 'line'); sep2.setAttribute('x1', L - 10); sep2.setAttribute('y1', SERV_LINE_Y); sep2.setAttribute('x2', W - 4); sep2.setAttribute('y2', SERV_LINE_Y); sep2.setAttribute('stroke', '#ddd'); sep2.setAttribute('stroke-width', '1'); svg.appendChild(sep2);
 
-      // === SERVIÇOS DO TOPO ===
-      topServs.forEach(function (s, i) {
-        var lb = document.createElementNS(ns, 'text'); lb.setAttribute('x', L - 8); lb.setAttribute('y', SERV_START + i * (CH + G) + CH / 2 + 4); lb.setAttribute('text-anchor', 'end'); lb.setAttribute('font-size', '10'); lb.setAttribute('fill', '#555'); lb.setAttribute('font-weight', '600');
+      // === TODOS OS SERVIÇOS (ordem respeitada, terra com multi-camadas) ===
+      topServs.forEach(function (s) {
+        var rowY = SERV_START + servRowOffset[s];
+        var isTerra = s === 'terra';
+        var nRows = isTerra ? mxT : 1;
+        var lblY = rowY + nRows * (CH + G) / 2 + 4;
+        var lb = document.createElementNS(ns, 'text'); lb.setAttribute('x', L - 8); lb.setAttribute('y', lblY); lb.setAttribute('text-anchor', 'end'); lb.setAttribute('font-size', '10'); lb.setAttribute('fill', '#555'); lb.setAttribute('font-weight', '600');
         lb.textContent = NOMES_CHART[s] || NOMES[s]; svg.appendChild(lb);
+
         var temFaixas = SERVICOS_COM_FAIXA.indexOf(s) >= 0;
+
         for (var c = celIni; c <= celFim; c++) {
           var gs = c * CELULA_ESTACAS;
           var gsEndT = Math.min(gs + CELULA_ESTACAS - 1, APP.obraAtual.EstacaFinal || 99999);
           var tipRange = 'E.' + gs + ' a E.' + gsEndT;
-          var celX = L + (c - celIni) * CW, celY = SERV_START + i * (CH + G);
-          var temProj = camadasProj(gs, s) > 0;
-          if (temFaixas) {
+          var celX = L + (c - celIni) * CW;
+
+          if (isTerra) {
+            // Terra: renderiza mxT camadas empilhadas
+            var n = camadasProj(gs, 'terra'), fe = camExecGrafCel(c, 'terra');
+            for (var cam = 1; cam <= mxT; cam++) {
+              var camY = rowY + (cam - 1) * (CH + G);
+              var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', celX); r.setAttribute('y', camY); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
+              if (cam > n) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.3'); r.setAttribute('stroke-dasharray', '2,2'); }
+              else {
+                var feita = (n - cam + 1) <= fe; r.setAttribute('fill', feita ? CORES.terra : '#f0f0f0'); r.setAttribute('stroke', feita ? CORES.terra : '#ccc'); r.setAttribute('stroke-width', '0.5');
+                var tt = document.createElementNS(ns, 'title'); tt.textContent = tipRange + ' | Terraplanagem c.' + (n - cam + 1) + '/' + n + (feita ? ' ✓ executada' : ' — pendente'); r.appendChild(tt);
+              }
+              svg.appendChild(r);
+            }
+          } else if (temFaixas) {
+            var celY = rowY;
+            var temProj = camadasProj(gs, s) > 0;
             var fs = faixaStatusCel(s, c);
-            // Fundo base
             var bg = document.createElementNS(ns, 'rect'); bg.setAttribute('x', celX); bg.setAttribute('y', celY); bg.setAttribute('width', CW-1); bg.setAttribute('height', CH); bg.setAttribute('rx', '2');
             if (!temProj) { bg.setAttribute('fill','transparent'); bg.setAttribute('stroke','#e8e8e8'); bg.setAttribute('stroke-width','0.5'); bg.setAttribute('stroke-dasharray','2,2'); }
             else { bg.setAttribute('fill', fs==='none'||!fs ? '#f0f0f0' : CORES[s]); bg.setAttribute('stroke', fs==='none'||!fs ? '#ccc' : CORES[s]); bg.setAttribute('stroke-width','0.5'); }
             var ttFx = document.createElementNS(ns,'title'); ttFx.textContent = tipRange+' | '+NOMES[s]+(temProj?(fs==='full'?' ✓ completa':fs==='faixa1'?' — Faixa 1':fs==='faixa2'?' — Faixa 2':' — pendente'):' — sem projeto'); bg.appendChild(ttFx);
             svg.appendChild(bg);
-            // Se apenas meia faixa, desenha hachura/divisor para mostrar a outra metade vazia
             if (temProj && (fs==='faixa1'||fs==='faixa2')) {
               var halfH = Math.round(CH/2);
               var emptyY = fs==='faixa1' ? celY+halfH : celY;
-              var emptyR = document.createElementNS(ns,'rect'); emptyR.setAttribute('x',celX); emptyR.setAttribute('y',emptyY); emptyR.setAttribute('width',CW-1); emptyR.setAttribute('height',halfH); emptyR.setAttribute('fill','#f0f0f0'); emptyR.setAttribute('stroke','none');
-              svg.appendChild(emptyR);
-              var div = document.createElementNS(ns,'line'); div.setAttribute('x1',celX); div.setAttribute('y1',celY+halfH); div.setAttribute('x2',celX+CW-1); div.setAttribute('y2',celY+halfH); div.setAttribute('stroke','rgba(255,255,255,0.6)'); div.setAttribute('stroke-width','1');
-              svg.appendChild(div);
+              var emptyR = document.createElementNS(ns,'rect'); emptyR.setAttribute('x',celX); emptyR.setAttribute('y',emptyY); emptyR.setAttribute('width',CW-1); emptyR.setAttribute('height',halfH); emptyR.setAttribute('fill','#f0f0f0'); emptyR.setAttribute('stroke','none'); svg.appendChild(emptyR);
+              var divL = document.createElementNS(ns,'line'); divL.setAttribute('x1',celX); divL.setAttribute('y1',celY+halfH); divL.setAttribute('x2',celX+CW-1); divL.setAttribute('y2',celY+halfH); divL.setAttribute('stroke','rgba(255,255,255,0.6)'); divL.setAttribute('stroke-width','1'); svg.appendChild(divL);
             }
           } else {
+            var celY = rowY;
+            var temProj = camadasProj(gs, s) > 0;
             var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', celX); r.setAttribute('y', celY); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
-            if (!temProj) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.5'); r.setAttribute('stroke-dasharray', '2,2') }
-            else { var conc = svConcGrafCel(s, c); r.setAttribute('fill', conc ? CORES[s] : '#f0f0f0'); r.setAttribute('stroke', conc ? CORES[s] : '#ccc'); r.setAttribute('stroke-width', '0.5') }
+            if (!temProj) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.5'); r.setAttribute('stroke-dasharray', '2,2'); }
+            else { var conc = svConcGrafCel(s, c); r.setAttribute('fill', conc ? CORES[s] : '#f0f0f0'); r.setAttribute('stroke', conc ? CORES[s] : '#ccc'); r.setAttribute('stroke-width', '0.5'); }
             var title = document.createElementNS(ns, 'title'); title.textContent = tipRange + ' | ' + NOMES[s] + (temProj ? (svConcGrafCel(s, c) ? ' ✓ concluída' : ' — pendente') : ' — sem projeto'); r.appendChild(title);
             svg.appendChild(r);
           }
         }
       });
-
-      // === TERRAPLANAGEM ===
-      if (temTerra) {
-        var sep3 = document.createElementNS(ns, 'line'); sep3.setAttribute('x1', L - 10); sep3.setAttribute('y1', TERRA_START - 5); sep3.setAttribute('x2', W - 4); sep3.setAttribute('y2', TERRA_START - 5); sep3.setAttribute('stroke', '#ddd'); sep3.setAttribute('stroke-width', '0.5'); svg.appendChild(sep3);
-        var lt = document.createElementNS(ns, 'text'); lt.setAttribute('x', L - 8); lt.setAttribute('y', TERRA_START + CH / 2 + 4); lt.setAttribute('text-anchor', 'end'); lt.setAttribute('font-size', '10'); lt.setAttribute('fill', '#555'); lt.setAttribute('font-weight', '600'); lt.textContent = 'Terraplan.'; svg.appendChild(lt);
-        for (var c = celIni; c <= celFim; c++) {
-          var gs2 = c * CELULA_ESTACAS;
-          var gsEnd2 = Math.min(gs2 + CELULA_ESTACAS - 1, APP.obraAtual.EstacaFinal || 99999);
-          var tipRange2 = 'E.' + gs2 + ' a E.' + gsEnd2;
-          var n = camadasProj(gs2, 'terra'), fe = camExecGrafCel(c, 'terra');
-          for (var cam = 1; cam <= mxT; cam++) {
-            var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', L + (c - celIni) * CW); r.setAttribute('y', TERRA_START + (cam - 1) * (CH + G)); r.setAttribute('width', CW - 1); r.setAttribute('height', CH); r.setAttribute('rx', '2');
-            if (cam > n) { r.setAttribute('fill', 'transparent'); r.setAttribute('stroke', '#e8e8e8'); r.setAttribute('stroke-width', '0.3'); r.setAttribute('stroke-dasharray', '2,2') }
-            else {
-              var feita = (n - cam + 1) <= fe; r.setAttribute('fill', feita ? CORES.terra : '#f0f0f0'); r.setAttribute('stroke', feita ? CORES.terra : '#ccc'); r.setAttribute('stroke-width', '0.5');
-              var title2 = document.createElementNS(ns, 'title'); title2.textContent = tipRange2 + ' | Terraplanagem c.' + (n - cam + 1) + '/' + n + (feita ? ' ✓ executada' : ' — pendente'); r.appendChild(title2);
-            }
-            svg.appendChild(r);
-          }
-        }
-      }
 
       return svg;
     }
@@ -2420,6 +2425,9 @@
         var d = document.getElementById('r-perm'), b = document.getElementById('btn-reg');
         if (!podeRegistrar()) { d.style.display = 'block'; d.innerHTML = '<div class="alert alert-err">Sem permissão nesta obra.</div>'; b.disabled = true }
         else { d.style.display = 'none'; b.disabled = false }
+        // Aba "Cadastro do projeto" visível apenas para super admins
+        var tabProjBtn = document.querySelector('.tab-btn[data-tab="projeto"]');
+        if (tabProjBtn) tabProjBtn.style.display = isAdmin() ? '' : 'none';
       }
       window.verificarPermissaoUI = verificarPermissaoUI;
     }
@@ -4051,7 +4059,7 @@
         var dowd=new Date(dsd+'T12:00:00').getDay(), fdsd=dowd===0||dowd===6;
         var dtFmt=String(dd).padStart(2,'0')+'/'+mm+'/'+ano;
         var semNome=SNOMES[dowd];
-        if(!fd){ linhasDiario+='<tr style="color:#ccc"><td>'+dtFmt+'</td><td>'+semNome+'</td><td colspan="4" style="text-align:center;font-size:10px">—</td></tr>'; continue; }
+        if(!fd){ linhasDiario+='<tr style="color:#ccc"><td>'+dtFmt+'</td><td>'+semNome+'</td><td colspan="5" style="text-align:center;font-size:10px">—</td></tr>'; continue; }
         var cMd=fd.CondicaoManha||'', cTd=fd.CondicaoTarde||'';
         var condStr=(cMd===cTd&&cMd)?dNomes[cMd]||cMd:((dNomes[cMd]||cMd)+(cTd&&cTd!==cMd?' / '+(dNomes[cTd]||cTd):''));
         var sMd=fd.ClimaManha==='claro'?'☀':fd.ClimaManha==='chuvoso'?'🌧':'';
@@ -4064,7 +4072,15 @@
         if(icd.material) pendParts.push('<span style="color:#5D4037;font-weight:600">Falta material</span>');
         if(icd.outros)   pendParts.push('<span style="color:#37474F;font-weight:600">Outros</span>');
         var atv=(fd.AtividadesRealizadas||'').replace(/\n/g,' ').substring(0,70)+(fd.AtividadesRealizadas&&fd.AtividadesRealizadas.length>70?'…':'');
-        linhasDiario+='<tr style="'+rowBg+'"><td style="white-space:nowrap">'+dtFmt+'</td><td>'+semNome+'</td><td>'+climaStr+'</td><td>'+condStr+'</td><td style="font-size:10px;color:#333">'+atv+'</td><td style="font-size:10px">'+pendParts.join('<br>')+'</td></tr>';
+        var vizCell='';
+        if((fd.DiretoriaVisualizou||'').trim()){
+          var vizPartes=(fd.DiretoriaVisualizou||'').split(';').map(function(p){return p.trim();}).filter(Boolean);
+          vizCell=vizPartes.map(function(p){
+            var pts=p.split(':'); var em=pts[0]; var dt=(pts[1]||'').substring(0,10).split('-').reverse().join('/');
+            return '<span style="display:block">👁 '+em+(dt?' ('+dt+')':'')+'</span>';
+          }).join('');
+        }
+        linhasDiario+='<tr style="'+rowBg+'"><td style="white-space:nowrap">'+dtFmt+'</td><td>'+semNome+'</td><td>'+climaStr+'</td><td>'+condStr+'</td><td style="font-size:10px;color:#333">'+atv+'</td><td style="font-size:10px">'+pendParts.join('<br>')+'</td><td style="font-size:9px;color:#2E7D32">'+vizCell+'</td></tr>';
       }
 
       // ===== PENDÊNCIAS =====
@@ -4175,7 +4191,7 @@
 
       // ── DIÁRIO DETALHADO ───────────────────────────────────────────────
       html += '<h2 class="page-break">Diário de Obras — '+mesNome+'/'+ano+'</h2>';
-      html += '<table><thead><tr><th style="width:70px">Data</th><th style="width:30px">Dia</th><th style="width:70px">Clima</th><th style="width:100px">Condição</th><th>Atividades Realizadas</th><th style="width:90px">Ocorrências</th></tr></thead><tbody>'+linhasDiario+'</tbody></table>';
+      html += '<table><thead><tr><th style="width:70px">Data</th><th style="width:30px">Dia</th><th style="width:70px">Clima</th><th style="width:100px">Condição</th><th>Atividades Realizadas</th><th style="width:90px">Ocorrências</th><th style="width:90px">Diretoria</th></tr></thead><tbody>'+linhasDiario+'</tbody></table>';
 
       // ── PENDÊNCIAS ─────────────────────────────────────────────────────
       if(linhasPend){
